@@ -1,4 +1,5 @@
 import { useApp } from "../store/app";
+import { useT } from "../lib/i18n";
 import { MessageContent } from "./MessageContent";
 import { ToolStepCard } from "./ToolStep";
 import type { ChatMessage } from "../types";
@@ -41,6 +42,7 @@ export function MessageBubble({ m }: { m: ChatMessage }) {
   }
 
   const hasTools = (m.toolSteps?.length ?? 0) > 0;
+  const t = useT();
   const showThinking = useApp((s) => s.showThinking);
   const hasReasoning = (m.reasoning?.length ?? 0) > 0;
   const isThinking = m.streaming && m.content.length === 0 && !hasTools;
@@ -51,7 +53,7 @@ export function MessageBubble({ m }: { m: ChatMessage }) {
       {showThinking && hasReasoning && (
         <div className="mb-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2">
           <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-faint)]">
-            <span className="opacity-70">💭</span> Размышления
+            <span className="opacity-70">💭</span> {t("Размышления")}
             {m.streaming && m.content.length === 0 && (
               <span className="ml-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-muted)]" />
             )}

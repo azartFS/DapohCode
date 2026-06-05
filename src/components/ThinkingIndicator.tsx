@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
+import { useT } from "../lib/i18n";
 
 /** Animated thinking indicator with elapsed timer.
  *  After ~10 s of silence the label gradually shifts toward red,
  *  reaching full red at ~40 s (like Claude Code). */
 export function ThinkingIndicator() {
+  const t = useT();
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -53,7 +55,7 @@ export function ThinkingIndicator() {
           style={{ backgroundColor: dotColor }}
         />
       </span>
-      <span>Думаю{dots.padEnd(3, "\u00a0")} {elapsed}с</span>
+      <span>{t("Думаю")}{dots.padEnd(3, "\u00a0")} {elapsed}с</span>
     </div>
   );
 }

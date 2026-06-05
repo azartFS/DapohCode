@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { save } from "@tauri-apps/plugin-dialog";
 import { useApp } from "../store/app";
+import { useT } from "../lib/i18n";
 import { writeTextFile } from "../lib/tauri";
 import {
   IconCircle,
@@ -20,6 +21,7 @@ export function Header() {
   const deleteSession = useApp((s) => s.deleteSession);
   const renameSession = useApp((s) => s.renameSession);
 
+  const t = useT();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -40,7 +42,7 @@ export function Header() {
 
   const hasMessages = (cur?.messages.length ?? 0) > 0;
   const title =
-    view === "settings" ? "Настройки" : hasMessages ? cur?.title ?? "" : "";
+    view === "settings" ? t("Настройки") : hasMessages ? cur?.title ?? "" : "";
 
   const onExport = async () => {
     setMenuOpen(false);
@@ -67,7 +69,7 @@ export function Header() {
   const onRename = () => {
     setMenuOpen(false);
     if (!cur) return;
-    const next = window.prompt("Название чата", cur.title ?? "");
+    const next = window.prompt(t("Название чата"), cur.title ?? "");
     if (next && next.trim()) renameSession(cur.id, next.trim());
   };
   const onDelete = () => {
@@ -112,19 +114,19 @@ export function Header() {
                   onClick={onRename}
                   className="block w-full px-3 py-2 text-left hover:bg-[var(--color-surface-2)]"
                 >
-                  Переименовать
+                  {t("Переименовать")}
                 </button>
                 <button
                   onClick={onExport}
                   className="block w-full px-3 py-2 text-left hover:bg-[var(--color-surface-2)]"
                 >
-                  Экспорт .md
+                  {t("Экспорт .md")}
                 </button>
                 <button
                   onClick={onDelete}
                   className="block w-full px-3 py-2 text-left text-[var(--color-danger)] hover:bg-[var(--color-surface-2)]"
                 >
-                  Удалить чат
+                  {t("Удалить чат")}
                 </button>
               </div>
             )}

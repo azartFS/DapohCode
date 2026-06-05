@@ -10,6 +10,7 @@ import {
 import { Select } from "./Select";
 import type { ReasoningEffort } from "../types";
 import { displayModelName, supportsReasoning } from "../lib/format";
+import { useT } from "../lib/i18n";
 
 const REASONING_OPTIONS: { value: ReasoningEffort; label: string }[] = [
   { value: "minimal", label: "Минимум" },
@@ -19,6 +20,7 @@ const REASONING_OPTIONS: { value: ReasoningEffort; label: string }[] = [
 ];
 
 export function Composer() {
+  const t = useT();
   const [text, setText] = useState("");
   const streaming = useApp((s) => s.streaming);
   const send = useApp((s) => s.send);
@@ -75,7 +77,7 @@ export function Composer() {
           onChange={onChange}
           onKeyDown={onKey}
           rows={1}
-          placeholder="Спросите что угодно..."
+          placeholder={t("Спросите что угодно...")}
           className="max-h-[200px] min-h-[26px] w-full resize-none bg-transparent text-[13.5px] leading-relaxed text-white outline-none placeholder:text-[var(--color-faint)]"
         />
 

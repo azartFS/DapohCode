@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useApp } from "../store/app";
+import { useT } from "../lib/i18n";
 import type { ToolStep } from "../types";
 import type { DiffLine } from "../lib/diff";
 import { diffStat } from "../lib/diff";
@@ -87,6 +88,7 @@ function DiffView({ lines }: { lines: DiffLine[] }) {
 }
 
 export function ToolStepCard({ step }: { step: ToolStep }) {
+  const t = useT();
   const pendingPerm = useApp((s) => s.pendingPerm);
   const resolvePermission = useApp((s) => s.resolvePermission);
   const isWrite =
@@ -99,7 +101,7 @@ export function ToolStepCard({ step }: { step: ToolStep }) {
 
   const diff = isWrite ? parseDiff(step.diff) : [];
   const stat = diff.length ? diffStat(diff) : null;
-  const label = LABEL[step.name] ?? step.name;
+  const label = t(LABEL[step.name] ?? step.name);
   const expandable = isWrite ? diff.length > 0 : !!step.result;
   const showBody = (open || awaiting) && expandable;
 
@@ -150,19 +152,19 @@ export function ToolStepCard({ step }: { step: ToolStep }) {
       {awaiting && (
         <div className="flex items-center gap-2 border-t border-[var(--color-border)] px-3 py-2">
           <span className="mr-auto text-[12px] text-[var(--color-muted)]">
-            Применить изменение?
+            {t("Применить изменение?")}
           </span>
           <button
             onClick={() => resolvePermission(false)}
             className="rounded-lg border border-[var(--color-border-strong)] px-3 py-1.5 text-[12px] text-[var(--color-muted)] transition-colors hover:text-white"
           >
-            Отклонить
+            {t("Отклонить")}
           </button>
           <button
             onClick={() => resolvePermission(true)}
             className="rounded-lg bg-white px-3 py-1.5 text-[12px] font-medium text-black transition-opacity hover:opacity-90"
           >
-            Применить
+            {t("Применить")}
           </button>
         </div>
       )}

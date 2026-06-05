@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { useApp } from "../store/app";
+import { useT } from "../lib/i18n";
 import { PROVIDER_PRESETS } from "../lib/presets";
 import { displayModelName } from "../lib/format";
 import { Select } from "./Select";
@@ -81,6 +82,7 @@ const inputCls =
 export function SettingsView() {
   const [section, setSection] = useState<Section>("general");
   const close = useApp((s) => s.setView);
+  const t = useT();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -113,7 +115,7 @@ export function SettingsView() {
               <div key={g.group || "extra"} className="flex flex-col gap-0.5">
                 {g.group && (
                   <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wider text-[var(--color-faint)]">
-                    {g.group}
+                    {t(g.group)}
                   </div>
                 )}
                 {g.items.map((it) => {
@@ -134,7 +136,7 @@ export function SettingsView() {
                           active ? "text-[var(--color-text)]" : "text-[var(--color-faint)]"
                         }`}
                       />
-                      {it.label}
+                      {t(it.label)}
                     </button>
                   );
                 })}
@@ -170,11 +172,12 @@ export function SettingsView() {
 /* ───────────────────────── Shared ───────────────────────── */
 
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
+  const t = useT();
   return (
     <div className="mb-6">
-      <h1 className="text-[19px] font-semibold tracking-tight text-[var(--color-text)]">{title}</h1>
+      <h1 className="text-[19px] font-semibold tracking-tight text-[var(--color-text)]">{t(title)}</h1>
       {sub && (
-        <p className="mt-1 text-[12.5px] text-[var(--color-muted)]">{sub}</p>
+        <p className="mt-1 text-[12.5px] text-[var(--color-muted)]">{t(sub)}</p>
       )}
     </div>
   );
@@ -211,6 +214,7 @@ function SettingRow({
   children: ReactNode;
   noBorder?: boolean;
 }) {
+  const t = useT();
   return (
     <div
       className={`flex items-start gap-4 py-4 ${
@@ -218,10 +222,10 @@ function SettingRow({
       }`}
     >
       <div className="min-w-0 flex-1">
-        <div className="text-[12.5px] font-medium text-[var(--color-text)]">{label}</div>
+        <div className="text-[12.5px] font-medium text-[var(--color-text)]">{t(label)}</div>
         {description && (
           <p className="mt-1 text-[11.5px] leading-relaxed text-[var(--color-faint)]">
-            {description}
+            {t(description)}
           </p>
         )}
       </div>
@@ -274,6 +278,7 @@ function GeneralSection() {
 function CustomizationSection() {
   const theme = useApp((s) => s.theme);
   const setTheme = useApp((s) => s.setTheme);
+  const t = useT();
 
   return (
     <div>
@@ -281,17 +286,17 @@ function CustomizationSection() {
       <div className="flex flex-col">
         <SettingRow label="Тема" description="Цветовая схема интерфейса." noBorder>
           <div className="flex gap-2">
-            {(["dark", "light", "system"] as const).map((t) => (
+            {(["dark", "light", "system"] as const).map((th) => (
               <button
-                key={t}
-                onClick={() => setTheme(t)}
+                key={th}
+                onClick={() => setTheme(th)}
                 className={`rounded-lg border px-3 py-1.5 text-[12px] transition-colors ${
-                  theme === t
+                  theme === th
                     ? "border-[var(--color-accent)]/30 bg-[var(--color-surface-2)] font-medium text-[var(--color-text)]"
                     : "border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)]"
                 }`}
               >
-                {t === "dark" ? "Тёмная" : t === "light" ? "Светлая" : "Системная"}
+                {th === "dark" ? t("Тёмная") : th === "light" ? t("Светлая") : t("Системная")}
               </button>
             ))}
           </div>
@@ -384,6 +389,7 @@ const HOTKEYS: { keys: string[]; desc: string }[] = [
 ];
 
 function HotkeysSection() {
+  const t = useT();
   return (
     <div>
       <SectionTitle title="Хоткеи" sub="Горячие клавиши приложения." />
@@ -397,7 +403,7 @@ function HotkeysSection() {
                 : ""
             }`}
           >
-            <span className="text-[12.5px] text-[var(--color-text)]">{h.desc}</span>
+            <span className="text-[12.5px] text-[var(--color-text)]">{t(h.desc)}</span>
             <span className="flex items-center gap-1">
               {h.keys.map((k) => (
                 <kbd
@@ -412,7 +418,7 @@ function HotkeysSection() {
         ))}
       </div>
       <p className="mt-3 text-[11.5px] text-[var(--color-faint)]">
-        Настраиваемые сочетания появятся в следующих версиях.
+        {t("Настраиваемые сочетания появятся в следующих версиях.")}
       </p>
     </div>
   );
@@ -421,6 +427,7 @@ function HotkeysSection() {
 /* ───────────────────────── About ───────────────────────── */
 
 function AboutSection() {
+  const t = useT();
   const clearAllData = useApp((s) => s.clearAllData);
   const sessions = useApp((s) => s.sessions);
   const models = useApp((s) => s.models);
@@ -433,19 +440,19 @@ function AboutSection() {
 
       <div className="mb-6 overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
-          <span className="text-[12.5px] text-[var(--color-muted)]">Версия</span>
+          <span className="text-[12.5px] text-[var(--color-muted)]">{t("Версия")}</span>
           <span className="font-mono text-[12.5px] text-[var(--color-text)]">{APP_VERSION}</span>
         </div>
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
-          <span className="text-[12.5px] text-[var(--color-muted)]">Сессий</span>
+          <span className="text-[12.5px] text-[var(--color-muted)]">{t("Сессий")}</span>
           <span className="font-mono text-[12.5px] text-[var(--color-text)]">{sessions.length}</span>
         </div>
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
-          <span className="text-[12.5px] text-[var(--color-muted)]">Провайдеров</span>
+          <span className="text-[12.5px] text-[var(--color-muted)]">{t("Провайдеров")}</span>
           <span className="font-mono text-[12.5px] text-[var(--color-text)]">{providers.length}</span>
         </div>
         <div className="flex items-center justify-between px-4 py-3">
-          <span className="text-[12.5px] text-[var(--color-muted)]">Моделей</span>
+          <span className="text-[12.5px] text-[var(--color-muted)]">{t("Моделей")}</span>
           <span className="font-mono text-[12.5px] text-[var(--color-text)]">{models.length}</span>
         </div>
       </div>
@@ -453,17 +460,17 @@ function AboutSection() {
       <div className="rounded-2xl border border-[#3a2020] bg-[#1a1010] p-4">
         <div className="mb-2 flex items-center gap-2">
           <IconTrash className="h-4 w-4 text-[#e05050]" />
-          <span className="text-[13px] font-medium text-[var(--color-text)]">Очистить все данные</span>
+          <span className="text-[13px] font-medium text-[var(--color-text)]">{t("Очистить все данные")}</span>
         </div>
         <p className="mb-3 text-[11.5px] text-[var(--color-faint)]">
-          Удалить все сессии, провайдеров, модели и настройки. Это действие необратимо.
+          {t("Удалить все сессии, провайдеров, модели и настройки. Это действие необратимо.")}
         </p>
         {!confirmClear ? (
           <button
             onClick={() => setConfirmClear(true)}
             className="rounded-md border border-[#5a2020] bg-[#2a1515] px-3.5 py-2 text-[12.5px] font-medium text-[#e05050] transition-colors hover:bg-[#3a2020]"
           >
-            Удалить всё
+            {t("Удалить всё")}
           </button>
         ) : (
           <div className="flex items-center gap-2">
@@ -471,13 +478,13 @@ function AboutSection() {
               onClick={() => clearAllData()}
               className="rounded-md bg-[#e05050] px-3.5 py-2 text-[12.5px] font-medium text-white transition-opacity hover:opacity-90"
             >
-              Да, удалить
+              {t("Да, удалить")}
             </button>
             <button
               onClick={() => setConfirmClear(false)}
               className="rounded-md border border-[var(--color-border)] px-3.5 py-2 text-[12.5px] text-[var(--color-muted)] transition-colors hover:text-[var(--color-text)]"
             >
-              Отмена
+              {t("Отмена")}
             </button>
           </div>
         )}
@@ -489,6 +496,7 @@ function AboutSection() {
 /* ───────────────────────── Providers ───────────────────────── */
 
 function ProvidersSection() {
+  const t = useT();
   const providers = useApp((s) => s.providers);
   const addProvider = useApp((s) => s.addProvider);
   const removeProvider = useApp((s) => s.removeProvider);
@@ -533,7 +541,7 @@ function ProvidersSection() {
       {providers.length > 0 && (
         <div className="mb-8">
           <h2 className="mb-3 text-[13px] font-semibold text-[var(--color-muted)]">
-            Подключённые провайдеры
+            {t("Подключённые провайдеры")}
           </h2>
           <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
             {providers.map((p, i) => {
@@ -552,13 +560,13 @@ function ProvidersSection() {
                     {p.name}
                   </span>
                   <span className="shrink-0 rounded border border-[var(--color-border-strong)] px-1.5 py-0.5 text-[10.5px] text-[var(--color-muted)]">
-                    {isPreset ? "API ключ" : "Пользовательский"}
+                    {isPreset ? t("API ключ") : t("Пользовательский")}
                   </span>
                   <button
                     onClick={() => removeProvider(p.id)}
                     className="ml-auto shrink-0 text-[12.5px] text-[var(--color-muted)] transition-colors hover:text-[var(--color-text)]"
                   >
-                    Отключить
+                    {t("Отключить")}
                   </button>
                 </div>
               );
@@ -594,7 +602,7 @@ function ProvidersSection() {
                   onClick={() => (open ? cancelConnect() : openConnect(i))}
                   className="ml-auto shrink-0 text-[12.5px] text-[var(--color-muted)] transition-colors hover:text-[var(--color-text)]"
                 >
-                  {open ? "Отмена" : "Подключить"}
+                  {open ? t("Отмена") : t("Подключить")}
                 </button>
               </div>
 
@@ -603,7 +611,7 @@ function ProvidersSection() {
                   <input
                     value={fName}
                     onChange={(e) => setFName(e.target.value)}
-                    placeholder="Название (как показывать)"
+                    placeholder={t("Название (как показывать)")}
                     className={inputCls}
                   />
                   <input
@@ -629,7 +637,7 @@ function ProvidersSection() {
                     disabled={!canConnect || busy}
                     className="self-start rounded-md bg-[var(--color-accent)] px-3.5 py-2 text-[12.5px] font-medium text-[var(--color-bg)] transition-opacity disabled:opacity-30"
                   >
-                    {busy ? "Подключение…" : "Подключить"}
+                    {busy ? t("Подключение…") : t("Подключить")}
                   </button>
                 </div>
               )}
@@ -644,6 +652,7 @@ function ProvidersSection() {
 /* ───────────────────────── Models ───────────────────────── */
 
 function ModelsSection() {
+  const t = useT();
   const providers = useApp((s) => s.providers);
   const models = useApp((s) => s.models);
   const addModel = useApp((s) => s.addModel);
@@ -674,7 +683,7 @@ function ModelsSection() {
 
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-[13px] font-semibold text-[var(--color-muted)]">
-          Подключённые модели
+          {t("Подключённые модели")}
         </h2>
         <button
           onClick={() => setShowForm((v) => !v)}
@@ -682,14 +691,13 @@ function ModelsSection() {
           className="flex items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] px-2.5 py-1.5 text-[12px] text-[var(--color-text)] transition-colors hover:bg-[var(--color-surface-2)] disabled:opacity-40"
         >
           <IconPlus className="h-[13px] w-[13px]" />
-          Добавить
+          {t("Добавить")}
         </button>
       </div>
 
       {models.length === 0 ? (
         <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-6 text-center text-[12.5px] text-[var(--color-faint)]">
-          Моделей нет — нажмите «загрузить модели» у провайдера или добавьте
-          вручную.
+          {t("Моделей нет — нажмите «загрузить модели» у провайдера или добавьте вручную.")}
         </div>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
@@ -710,14 +718,14 @@ function ModelsSection() {
                     {displayModelName(m.label)}
                   </div>
                   <div className="truncate font-mono text-[11px] text-[var(--color-faint)]">
-                    {m.modelId} · {prov?.name ?? "провайдер удалён"}
+                    {m.modelId} · {prov?.name ?? t("провайдер удалён")}
                   </div>
                 </div>
                 <button
                   onClick={() => removeModel(m.id)}
                   className="shrink-0 text-[12px] text-[var(--color-muted)] transition-colors hover:text-[var(--color-danger)]"
                 >
-                  Удалить
+                  {t("Удалить")}
                 </button>
               </div>
             );
@@ -728,7 +736,7 @@ function ModelsSection() {
       {showForm && providers.length > 0 && (
         <div className="mt-4 flex flex-col gap-2.5 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
           <div className="text-[12.5px] font-medium text-[var(--color-text)]">
-            Новая модель
+            {t("Новая модель")}
           </div>
           <Select
             value={effectiveProviderId}
@@ -744,7 +752,7 @@ function ModelsSection() {
           <input
             value={mLabel}
             onChange={(e) => setMLabel(e.target.value)}
-            placeholder="Название в интерфейсе (необязательно)"
+            placeholder={t("Название в интерфейсе (необязательно)")}
             className={inputCls}
           />
           <button
@@ -752,7 +760,7 @@ function ModelsSection() {
             disabled={!canAdd}
             className="self-start rounded-md bg-[var(--color-accent)] px-3.5 py-2 text-[12.5px] font-medium text-[var(--color-bg)] transition-opacity disabled:opacity-30"
           >
-            Добавить модель
+            {t("Добавить модель")}
           </button>
         </div>
       )}
