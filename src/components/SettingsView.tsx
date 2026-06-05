@@ -7,6 +7,8 @@ import {
   IconBell,
   IconClose,
   IconCpu,
+  IconGlobe,
+  IconHome,
   IconInfo,
   IconKeyboard,
   IconPalette,
@@ -19,7 +21,8 @@ import {
 } from "./icons";
 
 type Section =
-  | "appearance"
+  | "general"
+  | "customization"
   | "agent"
   | "permissions"
   | "notifications"
@@ -37,9 +40,15 @@ const NAV: {
   }[];
 }[] = [
   {
+    group: "Основное",
+    items: [
+      { id: "general", label: "Основные", icon: IconHome },
+    ],
+  },
+  {
     group: "Приложение",
     items: [
-      { id: "appearance", label: "Внешний вид", icon: IconPalette },
+      { id: "customization", label: "Кастомизация", icon: IconPalette },
       { id: "notifications", label: "Уведомления", icon: IconBell },
       { id: "hotkeys", label: "Хоткеи", icon: IconKeyboard },
     ],
@@ -59,7 +68,7 @@ const NAV: {
     ],
   },
   {
-    group: "",
+    group: "Другое",
     items: [{ id: "about", label: "О приложении", icon: IconInfo }],
   },
 ];
@@ -70,7 +79,7 @@ const inputCls =
   "rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-2 text-[12.5px] outline-none transition-colors focus:border-[var(--color-faint)] placeholder:text-[var(--color-faint)]";
 
 export function SettingsView() {
-  const [section, setSection] = useState<Section>("appearance");
+  const [section, setSection] = useState<Section>("general");
   const close = useApp((s) => s.setView);
 
   useEffect(() => {
@@ -93,7 +102,7 @@ export function SettingsView() {
         <button
           onClick={() => close("chat")}
           aria-label="Закрыть"
-          className="absolute right-3.5 top-3.5 z-10 flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-2)] hover:text-white"
+          className="absolute right-3.5 top-3.5 z-10 flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"
         >
           <IconClose className="h-4 w-4" />
         </button>
@@ -116,13 +125,13 @@ export function SettingsView() {
                       onClick={() => setSection(it.id)}
                       className={`flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] transition-colors ${
                         active
-                          ? "bg-[var(--color-surface-2)] font-medium text-white"
-                          : "text-[var(--color-muted)] hover:bg-[var(--color-surface)] hover:text-white"
+                          ? "bg-[var(--color-surface-2)] font-medium text-[var(--color-text)]"
+                          : "text-[var(--color-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]"
                       }`}
                     >
                       <Icon
                         className={`h-[15px] w-[15px] ${
-                          active ? "text-white" : "text-[var(--color-faint)]"
+                          active ? "text-[var(--color-text)]" : "text-[var(--color-faint)]"
                         }`}
                       />
                       {it.label}
@@ -134,7 +143,7 @@ export function SettingsView() {
           </nav>
 
           <div className="px-2">
-            <div className="text-[12px] font-semibold text-[#cfcfcf]">DapohCode</div>
+            <div className="text-[12px] font-semibold text-[var(--color-text)]">DapohCode</div>
             <div className="text-[11px] text-[var(--color-faint)]">{APP_VERSION}</div>
           </div>
         </aside>
@@ -142,7 +151,8 @@ export function SettingsView() {
         {/* Main panel */}
         <div className="min-w-0 flex-1 overflow-y-auto px-8 py-7">
           <div className="mx-auto max-w-2xl">
-            {section === "appearance" && <AppearanceSection />}
+            {section === "general" && <GeneralSection />}
+            {section === "customization" && <CustomizationSection />}
             {section === "notifications" && <NotificationsSection />}
             {section === "hotkeys" && <HotkeysSection />}
             {section === "agent" && <AgentSection />}
@@ -162,7 +172,7 @@ export function SettingsView() {
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="mb-6">
-      <h1 className="text-[19px] font-semibold tracking-tight">{title}</h1>
+      <h1 className="text-[19px] font-semibold tracking-tight text-[var(--color-text)]">{title}</h1>
       {sub && (
         <p className="mt-1 text-[12.5px] text-[var(--color-muted)]">{sub}</p>
       )}
@@ -176,14 +186,14 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
       onClick={onClick}
       className={`relative h-[21px] w-[38px] flex-shrink-0 rounded-full border transition-colors ${
         on
-          ? "border-transparent bg-white"
+          ? "border-transparent bg-[var(--color-accent)]"
           : "border-[var(--color-border-strong)] bg-[var(--color-surface-2)]"
       }`}
       aria-pressed={on}
     >
       <span
         className={`absolute top-[2px] h-[15px] w-[15px] rounded-full transition-all ${
-          on ? "left-[19px] bg-black" : "left-[2px] bg-[#777]"
+          on ? "left-[19px] bg-[var(--color-bg)]" : "left-[2px] bg-[#777]"
         }`}
       />
     </button>
@@ -208,7 +218,7 @@ function SettingRow({
       }`}
     >
       <div className="min-w-0 flex-1">
-        <div className="text-[12.5px] font-medium text-[#e8e8e8]">{label}</div>
+        <div className="text-[12.5px] font-medium text-[var(--color-text)]">{label}</div>
         {description && (
           <p className="mt-1 text-[11.5px] leading-relaxed text-[var(--color-faint)]">
             {description}
@@ -220,15 +230,54 @@ function SettingRow({
   );
 }
 
-/* ───────────────────────── Appearance ───────────────────────── */
+/* ───────────────────────── General ───────────────────────── */
 
-function AppearanceSection() {
+function GeneralSection() {
+  const language = useApp((s) => s.language);
+  const setLanguage = useApp((s) => s.setLanguage);
+
+  return (
+    <div>
+      <SectionTitle title="Основные" sub="Основные параметры приложения." />
+      <div className="flex flex-col">
+        <SettingRow
+          label="Язык интерфейса"
+          description="Язык отображения интерфейса и ответов агента."
+          noBorder
+        >
+          <div className="flex items-center gap-2">
+            <IconGlobe className="h-4 w-4 text-[var(--color-faint)]" />
+            <div className="flex overflow-hidden rounded-lg border border-[var(--color-border)]">
+              {(["ru", "en"] as const).map((lang) => (
+                <button
+                  key={lang}
+                  onClick={() => setLanguage(lang)}
+                  className={`px-3.5 py-1.5 text-[12px] transition-colors ${
+                    language === lang
+                      ? "bg-[var(--color-surface-2)] font-medium text-[var(--color-text)]"
+                      : "text-[var(--color-muted)] hover:text-[var(--color-text)]"
+                  } ${lang === "ru" ? "border-r border-[var(--color-border)]" : ""}`}
+                >
+                  {lang === "ru" ? "Русский" : "English"}
+                </button>
+              ))}
+            </div>
+          </div>
+        </SettingRow>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── Customization (was Appearance) ───────────────────────── */
+
+function CustomizationSection() {
   const theme = useApp((s) => s.theme);
   const setTheme = useApp((s) => s.setTheme);
 
   return (
     <div>
-      <SectionTitle title="Внешний вид" sub="Тема интерфейса и отображение." />
+      <SectionTitle title="Кастомизация" sub="Тема интерфейса и визуальные настройки." />
       <div className="flex flex-col">
         <SettingRow label="Тема" description="Цветовая схема интерфейса." noBorder>
           <div className="flex gap-2">
@@ -238,8 +287,8 @@ function AppearanceSection() {
                 onClick={() => setTheme(t)}
                 className={`rounded-lg border px-3 py-1.5 text-[12px] transition-colors ${
                   theme === t
-                    ? "border-white/30 bg-[var(--color-surface-2)] font-medium text-white"
-                    : "border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-border-strong)] hover:text-white"
+                    ? "border-[var(--color-accent)]/30 bg-[var(--color-surface-2)] font-medium text-[var(--color-text)]"
+                    : "border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)]"
                 }`}
               >
                 {t === "dark" ? "Тёмная" : t === "light" ? "Светлая" : "Системная"}
@@ -277,8 +326,6 @@ function NotificationsSection() {
 /* ───────────────────────── Agent ───────────────────────── */
 
 function AgentSection() {
-  const maxAgentSteps = useApp((s) => s.maxAgentSteps);
-  const setMaxAgentSteps = useApp((s) => s.setMaxAgentSteps);
   const compactMode = useApp((s) => s.compactMode);
   const setCompactMode = useApp((s) => s.setCompactMode);
 
@@ -287,25 +334,9 @@ function AgentSection() {
       <SectionTitle title="Настройки агента" sub="Параметры поведения AI-агента." />
       <div className="flex flex-col">
         <SettingRow
-          label="Макс. шагов агента"
-          description="Максимальное количество итераций (tool calls) за один запрос. Больше шагов = сложнее задачи, но дольше."
-          noBorder
-        >
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min={5}
-              max={100}
-              value={maxAgentSteps}
-              onChange={(e) => setMaxAgentSteps(parseInt(e.target.value) || 40)}
-              className="w-[70px] rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1.5 text-center font-mono text-[12.5px] outline-none transition-colors focus:border-[var(--color-faint)]"
-            />
-          </div>
-        </SettingRow>
-
-        <SettingRow
           label="Компактные ответы"
           description="Агент отвечает короче и по делу, без развёрнутых пояснений. Экономит токены."
+          noBorder
         >
           <Toggle on={compactMode} onClick={() => setCompactMode(!compactMode)} />
         </SettingRow>
@@ -358,7 +389,7 @@ function HotkeysSection() {
                 : ""
             }`}
           >
-            <span className="text-[12.5px] text-[#e8e8e8]">{h.desc}</span>
+            <span className="text-[12.5px] text-[var(--color-text)]">{h.desc}</span>
             <span className="flex items-center gap-1">
               {h.keys.map((k) => (
                 <kbd
@@ -395,26 +426,26 @@ function AboutSection() {
       <div className="mb-6 overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
           <span className="text-[12.5px] text-[var(--color-muted)]">Версия</span>
-          <span className="font-mono text-[12.5px] text-[#e8e8e8]">{APP_VERSION}</span>
+          <span className="font-mono text-[12.5px] text-[var(--color-text)]">{APP_VERSION}</span>
         </div>
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
           <span className="text-[12.5px] text-[var(--color-muted)]">Сессий</span>
-          <span className="font-mono text-[12.5px] text-[#e8e8e8]">{sessions.length}</span>
+          <span className="font-mono text-[12.5px] text-[var(--color-text)]">{sessions.length}</span>
         </div>
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
           <span className="text-[12.5px] text-[var(--color-muted)]">Провайдеров</span>
-          <span className="font-mono text-[12.5px] text-[#e8e8e8]">{providers.length}</span>
+          <span className="font-mono text-[12.5px] text-[var(--color-text)]">{providers.length}</span>
         </div>
         <div className="flex items-center justify-between px-4 py-3">
           <span className="text-[12.5px] text-[var(--color-muted)]">Моделей</span>
-          <span className="font-mono text-[12.5px] text-[#e8e8e8]">{models.length}</span>
+          <span className="font-mono text-[12.5px] text-[var(--color-text)]">{models.length}</span>
         </div>
       </div>
 
       <div className="rounded-2xl border border-[#3a2020] bg-[#1a1010] p-4">
         <div className="mb-2 flex items-center gap-2">
           <IconTrash className="h-4 w-4 text-[#e05050]" />
-          <span className="text-[13px] font-medium text-[#e8e8e8]">Очистить все данные</span>
+          <span className="text-[13px] font-medium text-[var(--color-text)]">Очистить все данные</span>
         </div>
         <p className="mb-3 text-[11.5px] text-[var(--color-faint)]">
           Удалить все сессии, провайдеров, модели и настройки. Это действие необратимо.
@@ -436,7 +467,7 @@ function AboutSection() {
             </button>
             <button
               onClick={() => setConfirmClear(false)}
-              className="rounded-md border border-[var(--color-border)] px-3.5 py-2 text-[12.5px] text-[var(--color-muted)] transition-colors hover:text-white"
+              className="rounded-md border border-[var(--color-border)] px-3.5 py-2 text-[12.5px] text-[var(--color-muted)] transition-colors hover:text-[var(--color-text)]"
             >
               Отмена
             </button>
@@ -509,7 +540,7 @@ function ProvidersSection() {
                   }`}
                 >
                   <IconServer className="h-[16px] w-[16px] shrink-0 text-[var(--color-muted)]" />
-                  <span className="truncate text-[13px] font-medium text-white">
+                  <span className="truncate text-[13px] font-medium text-[var(--color-text)]">
                     {p.name}
                   </span>
                   <span className="shrink-0 rounded border border-[var(--color-border-strong)] px-1.5 py-0.5 text-[10.5px] text-[var(--color-muted)]">
@@ -517,7 +548,7 @@ function ProvidersSection() {
                   </span>
                   <button
                     onClick={() => removeProvider(p.id)}
-                    className="ml-auto shrink-0 text-[12.5px] text-[var(--color-muted)] transition-colors hover:text-white"
+                    className="ml-auto shrink-0 text-[12.5px] text-[var(--color-muted)] transition-colors hover:text-[var(--color-text)]"
                   >
                     Отключить
                   </button>
@@ -548,12 +579,12 @@ function ProvidersSection() {
             >
               <div className="flex items-center gap-3 px-4 py-3.5">
                 <IconServer className="h-[16px] w-[16px] shrink-0 text-[var(--color-muted)]" />
-                <span className="truncate text-[13px] font-medium text-white">
+                <span className="truncate text-[13px] font-medium text-[var(--color-text)]">
                   {preset.name}
                 </span>
                 <button
                   onClick={() => (open ? cancelConnect() : openConnect(i))}
-                  className="ml-auto shrink-0 text-[12.5px] text-[var(--color-muted)] transition-colors hover:text-white"
+                  className="ml-auto shrink-0 text-[12.5px] text-[var(--color-muted)] transition-colors hover:text-[var(--color-text)]"
                 >
                   {open ? "Отмена" : "Подключить"}
                 </button>
@@ -588,7 +619,7 @@ function ProvidersSection() {
                   <button
                     onClick={() => void connect()}
                     disabled={!canConnect || busy}
-                    className="self-start rounded-md bg-white px-3.5 py-2 text-[12.5px] font-medium text-black transition-opacity disabled:opacity-30"
+                    className="self-start rounded-md bg-[var(--color-accent)] px-3.5 py-2 text-[12.5px] font-medium text-[var(--color-bg)] transition-opacity disabled:opacity-30"
                   >
                     {busy ? "Подключение…" : "Подключить"}
                   </button>
@@ -640,9 +671,9 @@ function ModelsSection() {
         <button
           onClick={() => setShowForm((v) => !v)}
           disabled={providers.length === 0}
-          className="flex items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] px-2.5 py-1.5 text-[12px] text-[#e8e8e8] transition-colors hover:bg-[var(--color-surface-2)] disabled:opacity-40"
+          className="flex items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] px-2.5 py-1.5 text-[12px] text-[var(--color-text)] transition-colors hover:bg-[var(--color-surface-2)] disabled:opacity-40"
         >
-          <IconPlus className="h-[13px] w-[13px] " />
+          <IconPlus className="h-[13px] w-[13px]" />
           Добавить
         </button>
       </div>
@@ -667,7 +698,7 @@ function ModelsSection() {
               >
                 <IconSparkle className="h-[15px] w-[15px] shrink-0 text-[var(--color-muted)]" />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px] font-medium text-white">
+                  <div className="truncate text-[13px] font-medium text-[var(--color-text)]">
                     {displayModelName(m.label)}
                   </div>
                   <div className="truncate font-mono text-[11px] text-[var(--color-faint)]">
@@ -688,7 +719,7 @@ function ModelsSection() {
 
       {showForm && providers.length > 0 && (
         <div className="mt-4 flex flex-col gap-2.5 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-          <div className="text-[12.5px] font-medium text-[#e8e8e8]">
+          <div className="text-[12.5px] font-medium text-[var(--color-text)]">
             Новая модель
           </div>
           <Select
@@ -711,7 +742,7 @@ function ModelsSection() {
           <button
             onClick={submit}
             disabled={!canAdd}
-            className="self-start rounded-md bg-white px-3.5 py-2 text-[12.5px] font-medium text-black transition-opacity disabled:opacity-30"
+            className="self-start rounded-md bg-[var(--color-accent)] px-3.5 py-2 text-[12.5px] font-medium text-[var(--color-bg)] transition-opacity disabled:opacity-30"
           >
             Добавить модель
           </button>

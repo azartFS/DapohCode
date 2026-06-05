@@ -21,6 +21,31 @@
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
 }
 
+/* Light theme overrides */
+html[data-theme="light"] {
+  --color-bg: #ffffff;
+  --color-rail: #f7f7f7;
+  --color-surface: #f3f3f3;
+  --color-surface-2: #e8e8e8;
+  --color-surface-3: #dedede;
+  --color-border: #e0e0e0;
+  --color-border-strong: #d0d0d0;
+  --color-text: #1a1a1a;
+  --color-muted: #6b6b6b;
+  --color-faint: #999999;
+  --color-accent: #1a1a1a;
+  --color-success: #16a34a;
+  --color-danger: #dc2626;
+  --color-warn: #ca8a04;
+}
+
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #d0d0d0;
+}
+html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: #b0b0b0;
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;

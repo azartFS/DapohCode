@@ -185,6 +185,7 @@ interface Persisted {
   notifyOnComplete: boolean;
   compactMode: boolean;
   theme: "dark" | "light" | "system";
+  language: "ru" | "en";
 }
 
 const DEFAULTS: Persisted = {
@@ -205,6 +206,7 @@ const DEFAULTS: Persisted = {
   notifyOnComplete: true,
   compactMode: false,
   theme: "dark",
+  language: "ru",
 };
 
 function sanitizeMessages(arr: unknown): ChatMessage[] {
@@ -274,6 +276,7 @@ function loadPersisted(): Persisted {
       notifyOnComplete: typeof p.notifyOnComplete === "boolean" ? p.notifyOnComplete : DEFAULTS.notifyOnComplete,
       compactMode: typeof p.compactMode === "boolean" ? p.compactMode : DEFAULTS.compactMode,
       theme: (["dark", "light", "system"] as const).includes(p.theme as "dark") ? (p.theme as "dark") : DEFAULTS.theme,
+      language: (["ru", "en"] as const).includes(p.language as "ru") ? (p.language as "ru") : DEFAULTS.language,
     };
   } catch {
     return { ...DEFAULTS };
@@ -316,10 +319,10 @@ interface AppState extends Persisted {
   setTemperature: (v: number) => void;
   setReasoningEffort: (v: ReasoningEffort) => void;
   setAutoApply: (v: boolean) => void;
-  setMaxAgentSteps: (v: number) => void;
   setNotifyOnComplete: (v: boolean) => void;
   setCompactMode: (v: boolean) => void;
   setTheme: (v: "dark" | "light" | "system") => void;
+  setLanguage: (v: "ru" | "en") => void;
   clearAllData: () => void;
 
   /** Pending file-change permission request (agent mode), or null. */
@@ -371,6 +374,7 @@ function persist(state: Persisted) {
     notifyOnComplete: state.notifyOnComplete,
     compactMode: state.compactMode,
     theme: state.theme,
+    language: state.language,
   };
   try {
     window.localStorage.setItem(STORE_KEY, JSON.stringify(data));
@@ -525,13 +529,6 @@ export const useApp = create<AppState>((set, get) => ({
       return { autoApply: v };
     }),
 
-  setMaxAgentSteps: (v) =>
-    set((s) => {
-      const clamped = Math.min(Math.max(Math.round(v), 5), 100);
-      persist({ ...s, maxAgentSteps: clamped });
-      return { maxAgentSteps: clamped };
-    }),
-
   setNotifyOnComplete: (v) =>
     set((s) => {
       persist({ ...s, notifyOnComplete: v });
@@ -548,6 +545,12 @@ export const useApp = create<AppState>((set, get) => ({
     set((s) => {
       persist({ ...s, theme: v });
       return { theme: v };
+    }),
+
+  setLanguage: (v) =>
+    set((s) => {
+      persist({ ...s, language: v });
+      return { language: v };
     }),
 
   clearAllData: () => {
@@ -834,7 +837,7 @@ export const useApp = create<AppState>((set, get) => ({
     };
 
     try {
-      for (let step = 0; step < get().maxAgentSteps; step++) {
+      for (let step = 0; step < 500; step++) {
         if (agentAbort) break;
 
         // Stream text tokens live via agent-delta events.

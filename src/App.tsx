@@ -6,8 +6,25 @@ import { ChatView } from "./components/ChatView";
 import { SettingsView } from "./components/SettingsView";
 import { onChatDelta, onChatDone, onChatError } from "./lib/tauri";
 
+function useThemeEffect() {
+  const theme = useApp((s) => s.theme);
+  useEffect(() => {
+    const html = document.documentElement;
+    if (theme === "system") {
+      const mq = window.matchMedia("(prefers-color-scheme: light)");
+      const apply = () => html.setAttribute("data-theme", mq.matches ? "light" : "dark");
+      apply();
+      mq.addEventListener("change", apply);
+      return () => mq.removeEventListener("change", apply);
+    } else {
+      html.setAttribute("data-theme", theme);
+    }
+  }, [theme]);
+}
+
 export default function App() {
   const view = useApp((s) => s.view);
+  useThemeEffect();
 
   useEffect(() => {
     const { appendDelta, finishStream, failStream } = useApp.getState();
