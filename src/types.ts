@@ -53,6 +53,8 @@ export interface ChatMessage {
   content: string;
   /** Reasoning/thinking tokens from the model (shown muted when enabled). */
   reasoning?: string;
+  /** Attached file contents injected into context (from @file mentions). */
+  fileContext?: string;
   /** Tool calls the assistant made in this turn (agent mode). */
   toolSteps?: ToolStep[];
   /** true while tokens are still streaming into this message */

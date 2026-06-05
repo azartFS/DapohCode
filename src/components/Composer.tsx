@@ -1,8 +1,10 @@
 import {
   type ChangeEvent,
   type KeyboardEvent,
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useApp } from "../store/app";
@@ -17,6 +19,7 @@ import { Select } from "./Select";
 import type { ReasoningEffort } from "../types";
 import { displayModelName, supportsReasoning } from "../lib/format";
 import { useT } from "../lib/i18n";
+import { readTextFile, readTree } from "../lib/tauri";
 
 const REASONING_OPTIONS: { value: ReasoningEffort; label: string }[] = [
   { value: "minimal", label: "Минимум" },
@@ -42,6 +45,10 @@ export function Composer() {
   const t = useT();
   const [text, setText] = useState("");
   const [slashIdx, setSlashIdx] = useState(0);
+  const [mentionIdx, setMentionIdx] = useState(0);
+  const [cursorPos, setCursorPos] = useState(0);
+  const [fileTree, setFileTree] = useState<string[]>([]);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const streaming = useApp((s) => s.streaming);
   const send = useApp((s) => s.send);
@@ -58,6 +65,11 @@ export function Composer() {
   const setReasoningEffort = useApp((s) => s.setReasoningEffort);
   const reasoningModelIds = useApp((s) => s.reasoningModelIds);
 
+  const folderPath = useApp((s) => {
+    const sess = s.sessions.find((x) => x.id === s.currentSessionId);
+    return sess?.folderPath ?? null;
+  });
+
   const reasoningLabel =
     REASONING_OPTIONS.find((o) => o.value === reasoningEffort)?.label ??
     "Средняя";
@@ -71,6 +83,17 @@ export function Composer() {
   const canReason = model
     ? supportsReasoning(reasoningModelIds, model.modelId)
     : false;
+
+  /* ── File tree cache (for @ mentions) ── */
+  useEffect(() => {
+    if (!folderPath) {
+      setFileTree([]);
+      return;
+    }
+    readTree(folderPath, 1000)
+      .then((files) => setFileTree(files.filter((f) => !f.endsWith("/"))))
+      .catch(() => setFileTree([]));
+  }, [folderPath]);
 
   /* ── Slash menu ── */
   const isSlash =
@@ -93,6 +116,41 @@ export function Composer() {
     setSlashIdx(0);
   }, [slashFilter]);
 
+  /* ── @ mention menu ── */
+  const beforeCursor = text.slice(0, cursorPos);
+  const lastAt = beforeCursor.lastIndexOf("@");
+  const isMention =
+    !isSlash &&
+    lastAt >= 0 &&
+    !beforeCursor.slice(lastAt + 1).includes(" ") &&
+    fileTree.length > 0;
+  const mentionFilter = isMention
+    ? beforeCursor.slice(lastAt + 1).toLowerCase()
+    : "";
+
+  const filteredFiles = useMemo(() => {
+    if (!isMention) return [];
+    if (!mentionFilter) return fileTree.slice(0, 8);
+    const scored = fileTree
+      .map((f) => {
+        const low = f.toLowerCase();
+        const name = low.split("/").pop() ?? low;
+        if (name.includes(mentionFilter)) return { f, score: 0 };
+        if (low.includes(mentionFilter)) return { f, score: 1 };
+        return null;
+      })
+      .filter(Boolean) as { f: string; score: number }[];
+    scored.sort((a, b) => a.score - b.score);
+    return scored.slice(0, 8).map((s) => s.f);
+  }, [isMention, mentionFilter, fileTree]);
+
+  const showMention = filteredFiles.length > 0 && !streaming;
+
+  useEffect(() => {
+    setMentionIdx(0);
+  }, [mentionFilter]);
+
+  /* ── Slash execution ── */
   const executeSlash = (cmd: SlashCmd) => {
     setText("");
     switch (cmd.name) {
@@ -124,21 +182,71 @@ export function Composer() {
     }
   };
 
-  const submit = () => {
+  /* ── @ mention selection ── */
+  const selectMention = useCallback(
+    (file: string) => {
+      const before = text.slice(0, lastAt);
+      const after = text.slice(cursorPos);
+      const next = `${before}@${file} ${after}`;
+      setText(next);
+      const newPos = before.length + 1 + file.length + 1;
+      setCursorPos(newPos);
+      requestAnimationFrame(() => {
+        const el = textareaRef.current;
+        if (el) {
+          el.selectionStart = newPos;
+          el.selectionEnd = newPos;
+          el.focus();
+        }
+      });
+    },
+    [text, lastAt, cursorPos],
+  );
+
+  /* ── Submit (resolve @mentions → read files → send) ── */
+  const submit = useCallback(async () => {
     const msg = text.trim();
     if (!msg || streaming) return;
     setText("");
+
+    // Parse @mentions
+    const mentionRe = /@([\w/.\\-]+[\w])/g;
+    let match: RegExpExecArray | null;
+    const mentions: string[] = [];
+    while ((match = mentionRe.exec(msg)) !== null) {
+      if (fileTree.includes(match[1])) mentions.push(match[1]);
+    }
+
+    if (mentions.length > 0 && folderPath) {
+      const sep = folderPath.includes("\\") ? "\\" : "/";
+      const parts: string[] = [];
+      for (const f of mentions) {
+        try {
+          const content = await readTextFile(`${folderPath}${sep}${f}`);
+          parts.push(`<file path="${f}">\n${content}\n</file>`);
+        } catch {
+          /* file not readable — skip */
+        }
+      }
+      if (parts.length > 0) {
+        void send(msg, parts.join("\n\n"));
+        return;
+      }
+    }
+
     void send(msg);
-  };
+  }, [text, streaming, fileTree, folderPath, send]);
 
   const onChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
+    setCursorPos(e.target.selectionStart ?? 0);
     const el = e.target;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   };
 
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    /* ── Slash menu navigation ── */
     if (showSlash) {
       if (e.key === "ArrowUp") {
         e.preventDefault();
@@ -164,15 +272,47 @@ export function Composer() {
         return;
       }
     }
+
+    /* ── @ mention navigation ── */
+    if (showMention) {
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMentionIdx((i) => (i > 0 ? i - 1 : filteredFiles.length - 1));
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMentionIdx((i) =>
+          i < filteredFiles.length - 1 ? i + 1 : 0,
+        );
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        const file = filteredFiles[mentionIdx];
+        if (file) selectMention(file);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        // Remove the @ trigger
+        const before = text.slice(0, lastAt);
+        const after = text.slice(cursorPos);
+        setText(before + after);
+        return;
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      submit();
+      void submit();
     }
   };
 
   return (
     <div className="mx-auto w-full max-w-[760px] px-4">
       <div className="relative">
+        {/* ── Slash command dropdown ── */}
         {showSlash && (
           <div className="absolute bottom-full left-0 z-50 mb-2 w-[280px] overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-1 shadow-xl">
             {filteredCmds.map((cmd, i) => (
@@ -197,11 +337,52 @@ export function Composer() {
             ))}
           </div>
         )}
+
+        {/* ── @ file mention dropdown ── */}
+        {showMention && (
+          <div className="absolute bottom-full left-0 z-50 mb-2 max-h-[240px] w-[360px] overflow-y-auto overflow-x-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-1 shadow-xl">
+            <div className="px-3 py-1.5 text-[11px] font-medium uppercase tracking-wider text-[var(--color-faint)]">
+              {t("Файлы проекта")}
+            </div>
+            {filteredFiles.map((file, i) => {
+              const parts = file.split("/");
+              const name = parts.pop() ?? file;
+              const dir = parts.length > 0 ? parts.join("/") + "/" : "";
+              return (
+                <button
+                  key={file}
+                  className={`flex w-full items-center gap-2 px-3.5 py-1.5 text-left transition-colors ${
+                    i === mentionIdx
+                      ? "bg-[var(--color-surface-2)]"
+                      : "hover:bg-[var(--color-surface-2)]/50"
+                  }`}
+                  onMouseEnter={() => setMentionIdx(i)}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => selectMention(file)}
+                >
+                  <span className="text-[12px] text-[var(--color-muted)]">
+                    {dir}
+                  </span>
+                  <span className="text-[12.5px] font-medium text-[var(--color-text)]">
+                    {name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-4 pb-2.5 pt-3.5 focus-within:border-[#3a3a3a]">
           <textarea
+            ref={textareaRef}
             value={text}
             onChange={onChange}
             onKeyDown={onKey}
+            onSelect={(e) =>
+              setCursorPos(
+                (e.target as HTMLTextAreaElement).selectionStart ?? 0,
+              )
+            }
             rows={1}
             placeholder={t("Спросите что угодно...")}
             className="max-h-[200px] min-h-[26px] w-full resize-none bg-transparent text-[13.5px] leading-relaxed text-white outline-none placeholder:text-[var(--color-faint)]"
@@ -228,7 +409,7 @@ export function Composer() {
                 </button>
               ) : (
                 <button
-                  onClick={submit}
+                  onClick={() => void submit()}
                   disabled={!text.trim()}
                   className="grid h-[32px] w-[32px] place-items-center rounded-[9px] bg-[var(--color-surface-3)] text-[#cfcfcf] transition-colors hover:text-white disabled:opacity-40"
                   title="Отправить"

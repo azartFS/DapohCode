@@ -137,7 +137,12 @@ ${memoryContent}`);
 
 /** Convert a stored display message into OpenAI-format API message(s). */
 function toApiMessages(m: ChatMessage): Array<Record<string, unknown>> {
-  if (m.role === "user") return [{ role: "user", content: m.content }];
+  if (m.role === "user") {
+    const content = m.fileContext
+      ? `${m.fileContext}\n\n${m.content}`
+      : m.content;
+    return [{ role: "user", content }];
+  }
   if (m.role === "assistant") {
     if (m.toolSteps && m.toolSteps.length > 0) {
       const out: Array<Record<string, unknown>> = [
@@ -226,6 +231,7 @@ function sanitizeMessages(arr: unknown): ChatMessage[] {
       streaming: false,
       error: !!m.error,
       ...(typeof m.reasoning === "string" && m.reasoning ? { reasoning: m.reasoning } : {}),
+      ...(typeof m.fileContext === "string" && m.fileContext ? { fileContext: m.fileContext } : {}),
       ...(Array.isArray(m.toolSteps) ? { toolSteps: m.toolSteps } : {}),
     }));
 }
@@ -377,7 +383,7 @@ interface AppState extends Persisted {
   renameSession: (id: string, title: string) => void;
   generateTitle: (sessionId: string) => Promise<void>;
 
-  send: (text: string) => Promise<void>;
+  send: (text: string, fileContext?: string) => Promise<void>;
   stop: () => Promise<void>;
 
   appendDelta: (requestId: string, content: string) => void;
@@ -1205,7 +1211,7 @@ export const useApp = create<AppState>((set, get) => ({
     }
   },
 
-  send: async (text) => {
+  send: async (text, fileContext) => {
     if (get().streaming) return;
 
     // Make sure there is an active session to write into.
@@ -1220,7 +1226,7 @@ export const useApp = create<AppState>((set, get) => ({
       ? s.providers.find((p) => p.id === model.providerId)
       : undefined;
 
-    const userMsg: ChatMessage = { id: uuid(), role: "user", content: text };
+    const userMsg: ChatMessage = { id: uuid(), role: "user", content: text, ...(fileContext ? { fileContext } : {}) };
     const sess = s.sessions.find((x) => x.id === sessionId);
     const isFirst = !sess || sess.messages.length === 0;
     // Provisional title from the first message; a model-generated title
@@ -1280,7 +1286,7 @@ export const useApp = create<AppState>((set, get) => ({
 
     const history = [...(sess?.messages ?? []), userMsg]
       .filter((m) => !m.error && m.content.trim().length > 0)
-      .map((m) => ({ role: m.role, content: m.content }));
+      .map((m) => ({ role: m.role, content: m.fileContext ? `${m.fileContext}\n\n${m.content}` : m.content }));
     const apiMessages = s.systemPrompt.trim()
       ? [{ role: "system", content: s.systemPrompt.trim() }, ...history]
       : history;

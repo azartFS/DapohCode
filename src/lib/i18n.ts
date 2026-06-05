@@ -117,6 +117,9 @@ const EN: Record<string, string> = {
   "Отклонить": "Reject",
   "Применить": "Apply",
 
+  // ── File mentions ──
+  "Файлы проекта": "Project Files",
+
   // ── Slash commands ──
   "Очистить чат": "Clear chat",
   "Сжать контекст": "Compact context",
