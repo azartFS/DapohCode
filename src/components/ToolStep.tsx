@@ -29,6 +29,7 @@ const LABEL: Record<string, string> = {
 function ToolIcon({ name, className }: { name: string; className?: string }) {
   if (name === "list_dir") return <IconList className={className} />;
   if (name === "edit_file") return <IconPencil className={className} />;
+  if (name === "search_text") return <IconSearch className={className} />;
   if (name === "delete_file") return <IconTrash className={className} />;
   if (name === "run_command") return <IconFileText className={className} />;
   return <IconFileText className={className} />;
