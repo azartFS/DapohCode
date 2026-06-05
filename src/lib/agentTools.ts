@@ -20,7 +20,7 @@ export const AGENT_TOOLS = [
     function: {
       name: "read_file",
       description:
-        "Прочитать содержимое текстового файла в проекте. Путь относительно корня проекта.",
+        "Прочитать файл. Путь относительно корня проекта. ОБЯЗАТЕЛЬНО читай перед правкой.",
       parameters: {
         type: "object",
         properties: {
@@ -35,7 +35,7 @@ export const AGENT_TOOLS = [
     function: {
       name: "list_dir",
       description:
-        "Показать список файлов и папок ОДНОГО уровня каталога. Путь относительно корня (по умолчанию корень).",
+        "Содержимое одного уровня каталога. По умолчанию — корень проекта.",
       parameters: {
         type: "object",
         properties: {
@@ -49,7 +49,7 @@ export const AGENT_TOOLS = [
     function: {
       name: "list_tree",
       description:
-        "Показать ВСЮ структуру проекта рекурсивно (все папки и файлы сразу). Тяжёлые папки (node_modules, target, .git, dist…) пропускаются. Используй это для анализа/обзора проекта вместо многократных list_dir.",
+        "Полная рекурсивная структура проекта. Тяжёлые папки (node_modules, .git, target, dist) пропускаются. Начинай исследование проекта с этого.",
       parameters: {
         type: "object",
         properties: {
@@ -66,7 +66,7 @@ export const AGENT_TOOLS = [
     function: {
       name: "search_text",
       description:
-        "Искать текст/подстроку по всему коду проекта (регистронезависимо). Возвращает совпадения в формате path:line: текст. Используй, чтобы находить определения, использования, имена функций и т.п.",
+        "Поиск подстроки по коду (регистронезависимо). Результат: path:line: текст.",
       parameters: {
         type: "object",
         properties: {
@@ -85,7 +85,7 @@ export const AGENT_TOOLS = [
     function: {
       name: "write_file",
       description:
-        "Создать новый файл или полностью перезаписать существующий. Передавай ПОЛНОЕ содержимое файла.",
+        "Создать файл или полностью перезаписать. Передавай ВСЁ содержимое, не фрагмент.",
       parameters: {
         type: "object",
         properties: {
@@ -101,7 +101,7 @@ export const AGENT_TOOLS = [
     function: {
       name: "edit_file",
       description:
-        "Точечно заменить фрагмент в файле: old_string заменяется на new_string. old_string должен совпадать ДОСЛОВНО (с пробелами/отступами) и встречаться РОВНО один раз — включай достаточно контекста для уникальности.",
+        "Точечная замена: old_string → new_string. old_string ДОСЛОВНО (пробелы, табы, переносы), РОВНО один раз в файле. Включай контекст для уникальности. Предпочтительный способ правки.",
       parameters: {
         type: "object",
         properties: {
@@ -118,7 +118,7 @@ export const AGENT_TOOLS = [
     function: {
       name: "run_command",
       description:
-        "Выполнить shell-команду в корне проекта (npm install, cargo build, git status и т.д.). Возвращает stdout, stderr и exit code. Таймаут по умолчанию 120 сек. Пути с пробелами работают — оборачивай в кавычки.",
+        "Shell-команда в корне проекта. Возвращает stdout, stderr, exit code. Таймаут 120с, макс 300с. Пути с пробелами — в кавычки.",
       parameters: {
         type: "object",
         properties: {
@@ -140,7 +140,7 @@ export const AGENT_TOOLS = [
     function: {
       name: "grep",
       description:
-        "Поиск по коду с регулярным выражением (regex). Поддерживает фильтр по расширению файлов. Мощнее чем search_text — используй для сложных паттернов, определений функций/классов, импортов конкретных модулей.",
+        "Regex-поиск по коду. Фильтр по расширению через glob. Для сложных паттернов: функции, классы, импорты.",
       parameters: {
         type: "object",
         properties: {
@@ -167,7 +167,7 @@ export const AGENT_TOOLS = [
     type: "function",
     function: {
       name: "delete_file",
-      description: "Удалить файл в проекте.",
+      description: "Удалить файл. Необратимо.",
       parameters: {
         type: "object",
         properties: {
