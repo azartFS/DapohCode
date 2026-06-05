@@ -38,11 +38,30 @@ pub async fn agent_complete(req: AgentRequest) -> Result<AgentResponse, String> 
     let base = req.base_url.trim_end_matches('/');
     let url = format!("{base}/chat/completions");
 
+    // Sanitize messages: ensure assistant content is always a string (some APIs
+    // reject `null` in tool-calling turns) and tool results are never null.
+    let messages: Vec<serde_json::Value> = req
+        .messages
+        .into_iter()
+        .map(|mut m| {
+            if m.get("role").and_then(|r| r.as_str()) == Some("assistant") {
+                if m.get("content").map_or(true, |c| c.is_null()) {
+                    m["content"] = serde_json::json!("");
+                }
+            }
+            if m.get("role").and_then(|r| r.as_str()) == Some("tool") {
+                if m.get("content").map_or(true, |c| c.is_null()) {
+                    m["content"] = serde_json::json!("");
+                }
+            }
+            m
+        })
+        .collect();
+
     let mut body = serde_json::json!({
         "model": req.model,
-        "messages": req.messages,
+        "messages": messages,
         "tools": req.tools,
-        "tool_choice": "auto",
         "stream": false,
     });
     if let Some(effort) = req.reasoning_effort.as_deref() {

@@ -746,7 +746,7 @@ export const useApp = create<AppState>((set, get) => ({
         // Record the assistant's tool-call turn for the model's context.
         apiMessages.push({
           role: "assistant",
-          content: content || null,
+          content: content || "",
           tool_calls: calls.map((c) => ({
             id: c.id,
             type: "function",
