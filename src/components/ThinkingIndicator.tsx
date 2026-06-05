@@ -14,7 +14,6 @@ export function ThinkingIndicator() {
     return () => clearInterval(id);
   }, []);
 
-  const dots = ".".repeat((elapsed % 3) + 1);
 
   // 0-10s: normal muted color, 10-40s: lerp toward red
   const progress = Math.min(Math.max((elapsed - 10) / 30, 0), 1);
@@ -55,7 +54,7 @@ export function ThinkingIndicator() {
           style={{ backgroundColor: dotColor }}
         />
       </span>
-      <span>{t("Думаю")}{dots.padEnd(3, "\u00a0")} {elapsed}с</span>
+      <span>{t("Думаю")} {elapsed}с</span>
     </div>
   );
 }
