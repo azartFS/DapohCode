@@ -1,4 +1,10 @@
-import { type ChangeEvent, type KeyboardEvent, useState } from "react";
+import {
+  type ChangeEvent,
+  type KeyboardEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useApp } from "../store/app";
 import {
   IconArrowUp,
@@ -19,12 +25,30 @@ const REASONING_OPTIONS: { value: ReasoningEffort; label: string }[] = [
   { value: "high", label: "Высокая" },
 ];
 
+interface SlashCmd {
+  name: string;
+  desc: string;
+}
+
+const SLASH_CMDS: SlashCmd[] = [
+  { name: "clear", desc: "Очистить чат" },
+  { name: "compact", desc: "Сжать контекст" },
+  { name: "model", desc: "Сменить модель" },
+  { name: "help", desc: "Показать команды" },
+  { name: "undo", desc: "Отменить изменение" },
+];
+
 export function Composer() {
   const t = useT();
   const [text, setText] = useState("");
+  const [slashIdx, setSlashIdx] = useState(0);
+
   const streaming = useApp((s) => s.streaming);
   const send = useApp((s) => s.send);
   const stop = useApp((s) => s.stop);
+  const clearCurrentSession = useApp((s) => s.clearCurrentSession);
+  const compactSession = useApp((s) => s.compactSession);
+  const addInfoMessage = useApp((s) => s.addInfoMessage);
 
   const models = useApp((s) => s.models);
   const providers = useApp((s) => s.providers);
@@ -48,11 +72,63 @@ export function Composer() {
     ? supportsReasoning(reasoningModelIds, model.modelId)
     : false;
 
-  const submit = () => {
-    const t = text.trim();
-    if (!t || streaming) return;
+  /* ── Slash menu ── */
+  const isSlash =
+    text.startsWith("/") && !text.includes(" ") && text.length > 0;
+  const slashFilter = isSlash ? text.slice(1).toLowerCase() : "";
+
+  const filteredCmds = useMemo(
+    () =>
+      isSlash
+        ? SLASH_CMDS.filter(
+            (c) => !slashFilter || c.name.startsWith(slashFilter),
+          )
+        : [],
+    [isSlash, slashFilter],
+  );
+
+  const showSlash = filteredCmds.length > 0 && !streaming;
+
+  useEffect(() => {
+    setSlashIdx(0);
+  }, [slashFilter]);
+
+  const executeSlash = (cmd: SlashCmd) => {
     setText("");
-    void send(t);
+    switch (cmd.name) {
+      case "clear":
+        clearCurrentSession();
+        break;
+      case "compact":
+        void compactSession();
+        break;
+      case "model": {
+        const idx = models.findIndex((m) => m.id === activeModelId);
+        const next =
+          models.length > 0
+            ? models[(idx + 1) % models.length]
+            : undefined;
+        if (next) setActiveModel(next.id);
+        break;
+      }
+      case "help":
+        addInfoMessage(
+          SLASH_CMDS.map((c) => `\`/${c.name}\` — ${t(c.desc)}`).join("\n"),
+        );
+        break;
+      case "undo":
+        void send(
+          "Отмени последнее изменение файла и восстанови предыдущую версию.",
+        );
+        break;
+    }
+  };
+
+  const submit = () => {
+    const msg = text.trim();
+    if (!msg || streaming) return;
+    setText("");
+    void send(msg);
   };
 
   const onChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
@@ -63,6 +139,31 @@ export function Composer() {
   };
 
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showSlash) {
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSlashIdx((i) => (i > 0 ? i - 1 : filteredCmds.length - 1));
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSlashIdx((i) =>
+          i < filteredCmds.length - 1 ? i + 1 : 0,
+        );
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        const cmd = filteredCmds[slashIdx];
+        if (cmd) executeSlash(cmd);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setText("");
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       submit();
@@ -71,46 +172,72 @@ export function Composer() {
 
   return (
     <div className="mx-auto w-full max-w-[760px] px-4">
-      <div className="rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-4 pb-2.5 pt-3.5 focus-within:border-[#3a3a3a]">
-        <textarea
-          value={text}
-          onChange={onChange}
-          onKeyDown={onKey}
-          rows={1}
-          placeholder={t("Спросите что угодно...")}
-          className="max-h-[200px] min-h-[26px] w-full resize-none bg-transparent text-[13.5px] leading-relaxed text-white outline-none placeholder:text-[var(--color-faint)]"
-        />
-
-        <div className="mt-2 flex items-center">
-          <button
-            className="grid h-[30px] w-[30px] place-items-center rounded-lg text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-2)] hover:text-white"
-            title="Прикрепить"
-            aria-label="Attach"
-          >
-            <IconPlus className="h-[17px] w-[17px]" />
-          </button>
-
-          <div className="ml-auto">
-            {streaming ? (
+      <div className="relative">
+        {showSlash && (
+          <div className="absolute bottom-full left-0 z-50 mb-2 w-[280px] overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-1 shadow-xl">
+            {filteredCmds.map((cmd, i) => (
               <button
-                onClick={() => void stop()}
-                className="grid h-[32px] w-[32px] place-items-center rounded-[9px] bg-[var(--color-surface-3)] text-white transition-colors hover:bg-[var(--color-border)]"
-                title="Стоп"
-                aria-label="Stop"
+                key={cmd.name}
+                className={`flex w-full items-start gap-3 px-3.5 py-2 text-left transition-colors ${
+                  i === slashIdx
+                    ? "bg-[var(--color-surface-2)]"
+                    : "hover:bg-[var(--color-surface-2)]/50"
+                }`}
+                onMouseEnter={() => setSlashIdx(i)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => executeSlash(cmd)}
               >
-                <span className="h-3 w-3 rounded-[2px] bg-white" />
+                <span className="shrink-0 font-mono text-[12.5px] text-[var(--color-accent)]">
+                  /{cmd.name}
+                </span>
+                <span className="text-[12px] leading-relaxed text-[var(--color-muted)]">
+                  {t(cmd.desc)}
+                </span>
               </button>
-            ) : (
-              <button
-                onClick={submit}
-                disabled={!text.trim()}
-                className="grid h-[32px] w-[32px] place-items-center rounded-[9px] bg-[var(--color-surface-3)] text-[#cfcfcf] transition-colors hover:text-white disabled:opacity-40"
-                title="Отправить"
-                aria-label="Send"
-              >
-                <IconArrowUp className="h-[16px] w-[16px]" />
-              </button>
-            )}
+            ))}
+          </div>
+        )}
+        <div className="rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-4 pb-2.5 pt-3.5 focus-within:border-[#3a3a3a]">
+          <textarea
+            value={text}
+            onChange={onChange}
+            onKeyDown={onKey}
+            rows={1}
+            placeholder={t("Спросите что угодно...")}
+            className="max-h-[200px] min-h-[26px] w-full resize-none bg-transparent text-[13.5px] leading-relaxed text-white outline-none placeholder:text-[var(--color-faint)]"
+          />
+
+          <div className="mt-2 flex items-center">
+            <button
+              className="grid h-[30px] w-[30px] place-items-center rounded-lg text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-2)] hover:text-white"
+              title="Прикрепить"
+              aria-label="Attach"
+            >
+              <IconPlus className="h-[17px] w-[17px]" />
+            </button>
+
+            <div className="ml-auto">
+              {streaming ? (
+                <button
+                  onClick={() => void stop()}
+                  className="grid h-[32px] w-[32px] place-items-center rounded-[9px] bg-[var(--color-surface-3)] text-white transition-colors hover:bg-[var(--color-border)]"
+                  title="Стоп"
+                  aria-label="Stop"
+                >
+                  <span className="h-3 w-3 rounded-[2px] bg-white" />
+                </button>
+              ) : (
+                <button
+                  onClick={submit}
+                  disabled={!text.trim()}
+                  className="grid h-[32px] w-[32px] place-items-center rounded-[9px] bg-[var(--color-surface-3)] text-[#cfcfcf] transition-colors hover:text-white disabled:opacity-40"
+                  title="Отправить"
+                  aria-label="Send"
+                >
+                  <IconArrowUp className="h-[16px] w-[16px]" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -150,7 +277,10 @@ export function Composer() {
           options={models.map((m) => {
             const pn =
               providers.find((p) => p.id === m.providerId)?.name ?? "?";
-            return { value: m.id, label: `${pn} · ${displayModelName(m.label)}` };
+            return {
+              value: m.id,
+              label: `${pn} · ${displayModelName(m.label)}`,
+            };
           })}
           trigger={
             <span className="flex cursor-pointer items-center gap-1.5 transition-colors hover:text-white">

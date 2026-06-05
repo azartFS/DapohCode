@@ -117,6 +117,13 @@ const EN: Record<string, string> = {
   "Отклонить": "Reject",
   "Применить": "Apply",
 
+  // ── Slash commands ──
+  "Очистить чат": "Clear chat",
+  "Сжать контекст": "Compact context",
+  "Сменить модель": "Switch model",
+  "Показать команды": "Show commands",
+  "Отменить изменение": "Undo change",
+
   // ── Reasoning options (Composer) ──
   "Минимум": "Minimal",
   "Низкая": "Low",

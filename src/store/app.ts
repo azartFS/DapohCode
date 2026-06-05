@@ -351,6 +351,9 @@ interface AppState extends Persisted {
   setLanguage: (v: "ru" | "en") => void;
   setShowThinking: (v: boolean) => void;
   clearAllData: () => void;
+  clearCurrentSession: () => void;
+  compactSession: () => Promise<void>;
+  addInfoMessage: (content: string) => void;
 
   /** Pending file-change permission request (agent mode), or null. */
   pendingPerm: { stepId: string; name: string; path: string } | null;
@@ -593,6 +596,87 @@ export const useApp = create<AppState>((set, get) => ({
       window.localStorage.removeItem(STORE_KEY);
       window.location.reload();
     }
+  },
+
+  clearCurrentSession: () => {
+    const sid = get().currentSessionId;
+    if (!sid) return;
+    set((s) => {
+      const sessions = withSessionMessages(s.sessions, sid, () => []);
+      persist({ ...s, sessions });
+      return { sessions };
+    });
+  },
+
+  compactSession: async () => {
+    const s = get();
+    const sid = s.currentSessionId;
+    if (!sid) return;
+    const sess = s.sessions.find((x) => x.id === sid);
+    if (!sess || sess.messages.length < 6) return;
+
+    const mdl = s.models.find((m) => m.id === s.activeModelId);
+    const prov = mdl
+      ? s.providers.find((p) => p.id === mdl.providerId)
+      : undefined;
+    if (!mdl || !prov) return;
+
+    const keepCount = 4;
+    const toCompact = sess.messages.slice(0, -keepCount);
+    const toKeep = sess.messages.slice(-keepCount);
+    if (toCompact.length < 2) return;
+
+    const compactText = toCompact
+      .filter((m) => m.content.trim().length > 0)
+      .map((m) => `[${m.role}]: ${m.content}`)
+      .join("\n\n")
+      .slice(0, 12000);
+
+    try {
+      const summary = await chatOnce({
+        baseUrl: prov.baseUrl,
+        apiKey: prov.apiKey,
+        model: mdl.modelId,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Сожми этот диалог в краткую сводку. Сохрани: ключевые решения, изменённые файлы, технические детали, важные договорённости. Убери всё лишнее. Отвечай ТОЛЬКО сводкой, без преамбул. Язык — как в диалоге.",
+          },
+          { role: "user", content: compactText },
+        ],
+      });
+      const summaryMsg: ChatMessage = {
+        id: uuid(),
+        role: "assistant",
+        content: `📋 **Сводка предыдущего контекста:**\n\n${summary.trim()}`,
+      };
+      set((st) => {
+        const sessions = withSessionMessages(
+          st.sessions,
+          sid as string,
+          () => [summaryMsg, ...toKeep],
+        );
+        persist({ ...st, sessions });
+        return { sessions };
+      });
+    } catch {
+      /* ignore compaction errors */
+    }
+  },
+
+  addInfoMessage: (content) => {
+    const sid = get().currentSessionId;
+    if (!sid) return;
+    const msg: ChatMessage = { id: uuid(), role: "assistant", content };
+    set((s) => {
+      const sessions = withSessionMessages(s.sessions, sid, (msgs) => [
+        ...msgs,
+        msg,
+      ]);
+      persist({ ...s, sessions });
+      return { sessions };
+    });
   },
 
   resolvePermission: (ok) => {
