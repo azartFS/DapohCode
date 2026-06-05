@@ -1,6 +1,7 @@
 //! Workspace filesystem commands. Plain `std::fs` (no extra plugins) so the
 //! IDE has full, explicit control over reads/writes inside the user's folder.
 
+use regex::RegexBuilder;
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
@@ -136,6 +137,92 @@ pub fn search_text(
                 break;
             }
             if line.to_lowercase().contains(&needle) {
+                hits.push(SearchHit {
+                    path: rel.clone(),
+                    line: (i + 1) as u32,
+                    text: line.trim().to_string(),
+                });
+            }
+        }
+    }
+
+    Ok(hits)
+}
+
+
+/// Regex search across project files. Supports optional file glob (e.g. "*.ts").
+/// Skips heavy dirs, binaries, files > 1 MB. Returns capped matches.
+#[tauri::command]
+pub fn grep_regex(
+    path: String,
+    pattern: String,
+    glob: Option<String>,
+    max_results: Option<usize>,
+) -> Result<Vec<SearchHit>, String> {
+    let re = RegexBuilder::new(pattern.trim())
+        .case_insensitive(true)
+        .build()
+        .map_err(|e| format!("Некорректное регулярное выражение: {e}"))?;
+
+    let root = Path::new(&path);
+    if !root.exists() {
+        return Err("Путь не существует.".into());
+    }
+
+    // Collect all file paths.
+    let mut file_paths: Vec<String> = Vec::new();
+    walk(root, root, &mut file_paths, false, 20000);
+
+    // Optional glob filter (simple: *.ext or **/*.ext)
+    let ext_filter: Option<String> = glob.as_deref().and_then(|g| {
+        let g = g.trim();
+        if let Some(ext) = g.strip_prefix("*.") {
+            Some(ext.to_lowercase())
+        } else if let Some(ext) = g.strip_prefix("**/*.") {
+            Some(ext.to_lowercase())
+        } else {
+            None
+        }
+    });
+
+    let cap = max_results.unwrap_or(200).min(500);
+    let mut hits: Vec<SearchHit> = Vec::new();
+
+    for rel in &file_paths {
+        if hits.len() >= cap {
+            break;
+        }
+        // Apply extension filter
+        if let Some(ref ext) = ext_filter {
+            let lower = rel.to_lowercase();
+            if !lower.ends_with(&format!(".{ext}")) {
+                continue;
+            }
+        }
+        let abs = root.join(rel);
+        let meta = match fs::metadata(&abs) {
+            Ok(m) => m,
+            Err(_) => continue,
+        };
+        if meta.len() > 1_048_576 {
+            continue;
+        }
+        let bytes = match fs::read(&abs) {
+            Ok(b) => b,
+            Err(_) => continue,
+        };
+        if bytes.iter().take(8000).any(|&b| b == 0) {
+            continue;
+        }
+        let text = match String::from_utf8(bytes) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+        for (i, line) in text.lines().enumerate() {
+            if hits.len() >= cap {
+                break;
+            }
+            if re.is_match(line) {
                 hits.push(SearchHit {
                     path: rel.clone(),
                     line: (i + 1) as u32,

@@ -46,6 +46,20 @@ export async function deleteEntry(path: string): Promise<void> {
 }
 
 /** Recursive project tree — returns relative paths, dirs end with '/'. */
+export async function grepRegex(
+  path: string,
+  pattern: string,
+  glob?: string,
+  maxResults?: number,
+): Promise<Array<{ path: string; line: number; text: string }>> {
+  return await invoke("grep_regex", {
+    path,
+    pattern,
+    glob: glob ?? null,
+    maxResults: maxResults ?? null,
+  });
+}
+
 export async function readTree(
   path: string,
   maxEntries?: number,

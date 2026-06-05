@@ -7,6 +7,7 @@ import {
   readTextFile,
   readTree,
   runCommand,
+  grepRegex,
   searchText,
   writeTextFile,
 } from "./tauri";
@@ -137,6 +138,34 @@ export const AGENT_TOOLS = [
   {
     type: "function",
     function: {
+      name: "grep",
+      description:
+        "Поиск по коду с регулярным выражением (regex). Поддерживает фильтр по расширению файлов. Мощнее чем search_text — используй для сложных паттернов, определений функций/классов, импортов конкретных модулей.",
+      parameters: {
+        type: "object",
+        properties: {
+          pattern: {
+            type: "string",
+            description:
+              "Регулярное выражение, напр. 'async fn \\w+' или 'import.*from .+zustand'",
+          },
+          path: {
+            type: "string",
+            description: "Где искать относительно проекта (по умолчанию весь проект)",
+          },
+          glob: {
+            type: "string",
+            description:
+              "Фильтр по расширению файлов, напр. '*.ts', '*.rs', '*.py'",
+          },
+        },
+        required: ["pattern"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "delete_file",
       description: "Удалить файл в проекте.",
       parameters: {
@@ -215,6 +244,16 @@ export async function runReadTool(
     const query = String(args.query ?? "");
     const p = resolvePath(root, String(args.path ?? ""));
     const hits = await searchText(p, query);
+    if (hits.length === 0) return "(нет совпадений)";
+    return clamp(
+      hits.map((h) => `${h.path}:${h.line}: ${h.text}`).join("\n"),
+    );
+  }
+  if (name === "grep") {
+    const pattern = String(args.pattern ?? "");
+    const p = resolvePath(root, String(args.path ?? ""));
+    const glob = args.glob != null ? String(args.glob) : undefined;
+    const hits = await grepRegex(p, pattern, glob);
     if (hits.length === 0) return "(нет совпадений)";
     return clamp(
       hits.map((h) => `${h.path}:${h.line}: ${h.text}`).join("\n"),

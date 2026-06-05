@@ -24,6 +24,7 @@ const LABEL: Record<string, string> = {
   edit_file: "Правка",
   delete_file: "Удаление",
   run_command: "Команда",
+  grep: "Поиск (regex)",
 };
 
 function ToolIcon({ name, className }: { name: string; className?: string }) {

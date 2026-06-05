@@ -65,7 +65,8 @@ ${memoryContent}`);
 ## Навигация и поиск
 - **list_tree(path?)** — полная рекурсивная структура проекта за один вызов. node_modules, .git, target, dist и т.п. пропускаются. ВСЕГДА начинай изучение проекта с этого.
 - **list_dir(path?)** — содержимое одного каталога. Используй когда нужен один конкретный уровень.
-- **search_text(query, path?)** — поиск подстроки по всему коду (регистронезависимо). Результат: path:line: текст. Используй для поиска определений, импортов, использований, строк конфига.
+- **search_text(query, path?)** — быстрый поиск подстроки по всему коду (регистронезависимо). Результат: path:line: текст.
+- **grep(pattern, path?, glob?)** — поиск по регулярному выражению. Поддерживает фильтр по расширению (glob="*.ts"). Используй для сложных паттернов: определений функций, импортов, типов. Примеры: pattern="async fn \\w+" glob="*.rs", pattern="import.*zustand" glob="*.ts".
 - **read_file(path)** — прочитать файл целиком. ОБЯЗАТЕЛЬНО читай файл перед любой правкой. Никогда не редактируй файл, который не прочитал.
 
 ## Редактирование
@@ -78,6 +79,9 @@ ${memoryContent}`);
 
   // ── Workflow ──
   parts.push(`# Как работать
+
+## Параллельное выполнение
+Все инструменты чтения (read_file, list_tree, search_text, grep) выполняются ПАРАЛЛЕЛЬНО в рамках одного ответа. Вызывай несколько read_file за раз — они отработают одновременно. Это значительно ускоряет анализ. Не стесняйся вызывать 5-10 инструментов чтения за один ход.
 
 ## Принцип: Сначала пойми, потом действуй
 1. ПРОЧИТАЙ задачу внимательно. Определи, что именно нужно сделать.
@@ -842,14 +846,52 @@ export const useApp = create<AppState>((set, get) => ({
           streaming: true,
         }));
 
-        for (const c of calls) {
+        // Split into read-only and non-read groups for parallel execution.
+        const readCalls = calls.filter(
+          (c) => !isWriteTool(c.name) && !isCommandTool(c.name),
+        );
+        const nonReadCalls = calls.filter(
+          (c) => isWriteTool(c.name) || isCommandTool(c.name),
+        );
+
+        // Results map: tool_call_id → result text
+        const results = new Map<string, string>();
+
+        // ── Execute ALL read-only tools in parallel ──
+        if (readCalls.length > 0 && !agentAbort) {
+          const readPromises = readCalls.map(async (c) => {
+            const args = parseArgs(c.arguments);
+            const dispPath = args.path != null ? String(args.path) : undefined;
+            patchStep(curId, c.id, (s) => ({ ...s, path: dispPath }));
+            try {
+              const resultText = await runReadTool(root, c.name, args);
+              patchStep(curId, c.id, (s) => ({
+                ...s,
+                status: "ok",
+                result: clip(resultText),
+              }));
+              results.set(c.id, resultText);
+            } catch (e) {
+              const errText = `Ошибка: ${String(e)}`;
+              patchStep(curId, c.id, (s) => ({
+                ...s,
+                status: "error",
+                result: errText,
+              }));
+              results.set(c.id, errText);
+            }
+          });
+          await Promise.all(readPromises);
+        }
+
+        // ── Execute write/command tools sequentially (need permission) ──
+        for (const c of nonReadCalls) {
           if (agentAbort) break;
           const args = parseArgs(c.arguments);
           const dispPath = args.path != null ? String(args.path) : undefined;
           let resultText = "";
           try {
             if (isCommandTool(c.name)) {
-              // Shell command — needs permission like writes but no diff.
               const cmdStr = String(args.command ?? "");
               const auto = get().autoApply;
               patchStep(curId, c.id, (s) => ({
@@ -886,14 +928,6 @@ export const useApp = create<AppState>((set, get) => ({
                   result: resultText,
                 }));
               }
-            } else if (!isWriteTool(c.name)) {
-              patchStep(curId, c.id, (s) => ({ ...s, path: dispPath }));
-              resultText = await runReadTool(root, c.name, args);
-              patchStep(curId, c.id, (s) => ({
-                ...s,
-                status: "ok",
-                result: clip(resultText),
-              }));
             } else {
               const prep = await prepareWrite(root, c.name, args);
               const diffStr = JSON.stringify(prep.diff);
@@ -946,10 +980,15 @@ export const useApp = create<AppState>((set, get) => ({
               result: resultText,
             }));
           }
+          results.set(c.id, resultText);
+        }
+
+        // Push all tool results to apiMessages in original call order.
+        for (const c of calls) {
           apiMessages.push({
             role: "tool",
             tool_call_id: c.id,
-            content: resultText,
+            content: results.get(c.id) ?? "",
           });
         }
 
