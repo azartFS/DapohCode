@@ -1,7 +1,14 @@
 //! Agent tool definitions (OpenAI tool-calling schema) + executors that map
 //! each tool onto the Rust filesystem commands, scoped to the project root.
 
-import { deleteEntry, readDir, readTextFile, writeTextFile } from "./tauri";
+import {
+  deleteEntry,
+  readDir,
+  readTextFile,
+  readTree,
+  searchText,
+  writeTextFile,
+} from "./tauri";
 import { diffLines, type DiffLine } from "./diff";
 
 /** OpenAI-format tools advertised to the model. */
@@ -26,12 +33,48 @@ export const AGENT_TOOLS = [
     function: {
       name: "list_dir",
       description:
-        "Показать список файлов и папок в каталоге проекта. Путь относительно корня (по умолчанию корень).",
+        "Показать список файлов и папок ОДНОГО уровня каталога. Путь относительно корня (по умолчанию корень).",
       parameters: {
         type: "object",
         properties: {
           path: { type: "string", description: "Путь к папке, напр. src (или '.')" },
         },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_tree",
+      description:
+        "Показать ВСЮ структуру проекта рекурсивно (все папки и файлы сразу). Тяжёлые папки (node_modules, target, .git, dist…) пропускаются. Используй это для анализа/обзора проекта вместо многократных list_dir.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: {
+            type: "string",
+            description: "Корень обхода относительно проекта (по умолчанию весь проект)",
+          },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_text",
+      description:
+        "Искать текст/подстроку по всему коду проекта (регистронезависимо). Возвращает совпадения в формате path:line: текст. Используй, чтобы находить определения, использования, имена функций и т.п.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Что искать" },
+          path: {
+            type: "string",
+            description: "Где искать относительно проекта (по умолчанию весь проект)",
+          },
+        },
+        required: ["query"],
       },
     },
   },
@@ -56,7 +99,7 @@ export const AGENT_TOOLS = [
     function: {
       name: "edit_file",
       description:
-        "Точечно заменить фрагмент в файле: old_string заменяется на new_string. old_string должен встречаться РОВНО один раз.",
+        "Точечно заменить фрагмент в файле: old_string заменяется на new_string. old_string должен совпадать ДОСЛОВНО (с пробелами/отступами) и встречаться РОВНО один раз — включай достаточно контекста для уникальности.",
       parameters: {
         type: "object",
         properties: {
@@ -116,7 +159,7 @@ function clamp(s: string): string {
   return s.length > MAX_RESULT ? s.slice(0, MAX_RESULT) + "\n…[обрезано]" : s;
 }
 
-/** Run a read-only tool (read_file / list_dir). Returns text for the model. */
+/** Run a read-only tool (read_file / list_dir / list_tree / search_text). Returns text for the model. */
 export async function runReadTool(
   root: string,
   name: string,
@@ -133,6 +176,21 @@ export async function runReadTool(
     return entries
       .map((e) => (e.is_dir ? `${e.name}/` : e.name))
       .join("\n");
+  }
+  if (name === "list_tree") {
+    const p = resolvePath(root, String(args.path ?? ""));
+    const tree = await readTree(p);
+    if (tree.length === 0) return "(пусто)";
+    return clamp(tree.join("\n"));
+  }
+  if (name === "search_text") {
+    const query = String(args.query ?? "");
+    const p = resolvePath(root, String(args.path ?? ""));
+    const hits = await searchText(p, query);
+    if (hits.length === 0) return "(нет совпадений)";
+    return clamp(
+      hits.map((h) => `${h.path}:${h.line}: ${h.text}`).join("\n"),
+    );
   }
   throw new Error(`Неизвестный инструмент чтения: ${name}`);
 }

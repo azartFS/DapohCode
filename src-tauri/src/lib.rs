@@ -7,7 +7,8 @@ use chat::{
     cancel_chat, chat_once, chat_stream, list_models, list_reasoning_models, CancelState,
 };
 use fs::{
-    create_entry, delete_entry, read_dir, read_text_file, rename_entry, write_text_file,
+    create_entry, delete_entry, read_dir, read_text_file, read_tree, rename_entry,
+    search_text, write_text_file,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -27,7 +28,9 @@ pub fn run() {
             write_text_file,
             create_entry,
             rename_entry,
-            delete_entry
+            delete_entry,
+            read_tree,
+            search_text
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -16,6 +16,12 @@ export interface FsEntry {
   is_dir: boolean;
 }
 
+export interface SearchHit {
+  path: string;
+  line: number;
+  text: string;
+}
+
 export async function readDir(path: string): Promise<FsEntry[]> {
   return await invoke<FsEntry[]>("read_dir", { path });
 }
@@ -37,6 +43,30 @@ export async function renameEntry(path: string, newName: string): Promise<string
 }
 export async function deleteEntry(path: string): Promise<void> {
   await invoke("delete_entry", { path });
+}
+
+/** Recursive project tree — returns relative paths, dirs end with '/'. */
+export async function readTree(
+  path: string,
+  maxEntries?: number,
+): Promise<string[]> {
+  return await invoke<string[]>("read_tree", {
+    path,
+    maxEntries: maxEntries ?? null,
+  });
+}
+
+/** Case-insensitive text search across project files. */
+export async function searchText(
+  path: string,
+  query: string,
+  maxResults?: number,
+): Promise<SearchHit[]> {
+  return await invoke<SearchHit[]>("search_text", {
+    path,
+    query,
+    maxResults: maxResults ?? null,
+  });
 }
 
 /* ─────────────────────────── Agent (tool-calling) ──────────────────────── */

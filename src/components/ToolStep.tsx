@@ -11,12 +11,15 @@ import {
   IconFileText,
   IconList,
   IconPencil,
+  IconSearch,
   IconTrash,
 } from "./icons";
 
 const LABEL: Record<string, string> = {
   read_file: "Чтение",
   list_dir: "Список",
+  list_tree: "Структура проекта",
+  search_text: "Поиск",
   write_file: "Запись",
   edit_file: "Правка",
   delete_file: "Удаление",
