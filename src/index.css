@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #000000;
+  --color-rail: #070707;
+  --color-surface: #0c0c0c;
+  --color-surface-2: #161616;
+  --color-surface-3: #1e1e1e;
+  --color-border: #1f1f1f;
+  --color-border-strong: #2a2a2a;
+  --color-text: #ffffff;
+  --color-muted: #8a8a8a;
+  --color-faint: #5a5a5a;
+  --color-accent: #ffffff;
+  --color-success: #22c55e;
+  --color-danger: #ef4444;
+  --color-warn: #eab308;
+
+  --font-display: "Segoe UI", "Segoe UI Variable", system-ui, ui-sans-serif, Roboto, sans-serif;
+  --font-sans: "Segoe UI", "Segoe UI Variable", system-ui, ui-sans-serif, Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  user-select: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input, textarea {
+  font-family: inherit;
+  user-select: text;
+}
+
+/* allow selecting assistant/user message text */
+.selectable {
+  user-select: text;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3a;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.cursor-blink {
+  display: inline-block;
+  width: 7px;
+  height: 1em;
+  background: var(--color-text);
+  vertical-align: text-bottom;
+  animation: blink 1s step-end infinite;
+}
+
+/* hidden scrollbar (sidebar session list) — scroll stays functional */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* custom titlebar drag region keeps the normal cursor */
+[data-tauri-drag-region] {
+  cursor: default;
+}
