@@ -2,6 +2,7 @@ import { MessageContent } from "./MessageContent";
 import { ToolStepCard } from "./ToolStep";
 import type { ChatMessage } from "../types";
 import { IconAlert } from "./icons";
+import { ThinkingIndicator } from "./ThinkingIndicator";
 
 export function MessageBubble({ m }: { m: ChatMessage }) {
   const isUser = m.role === "user";
@@ -51,7 +52,7 @@ export function MessageBubble({ m }: { m: ChatMessage }) {
         </div>
       )}
       {m.streaming && m.content.length === 0 && !hasTools && (
-        <span className="cursor-blink" />
+        <ThinkingIndicator />
       )}
     </div>
   );

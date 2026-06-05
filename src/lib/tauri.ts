@@ -125,6 +125,31 @@ export async function agentComplete(req: AgentRequest): Promise<AgentResponse> {
   });
 }
 
+/** Streaming agent completion — emits "agent-delta" events for text tokens,
+ *  returns the full AgentResponse (content + tool_calls) when done. */
+export async function agentStream(req: AgentRequest): Promise<AgentResponse> {
+  return await invoke<AgentResponse>("agent_stream", {
+    req: {
+      base_url: req.baseUrl,
+      api_key: req.apiKey,
+      model: req.model,
+      messages: req.messages,
+      tools: req.tools,
+      reasoning_effort: req.reasoningEffort ?? null,
+    },
+  });
+}
+
+export interface AgentDeltaEvent {
+  content: string;
+}
+
+export function onAgentDelta(
+  cb: (e: AgentDeltaEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<AgentDeltaEvent>("agent-delta", (e) => cb(e.payload));
+}
+
 export interface ChatOnceRequest {
   baseUrl: string;
   apiKey: string;

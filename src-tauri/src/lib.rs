@@ -3,7 +3,7 @@ mod chat;
 mod cmd;
 mod fs;
 
-use agent::agent_complete;
+use agent::{agent_complete, agent_stream};
 use cmd::run_command;
 use chat::{
     cancel_chat, chat_once, chat_stream, list_models, list_reasoning_models, CancelState,
@@ -25,6 +25,7 @@ pub fn run() {
             list_models,
             list_reasoning_models,
             agent_complete,
+            agent_stream,
             read_dir,
             read_text_file,
             write_text_file,

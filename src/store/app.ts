@@ -10,11 +10,13 @@ import type {
 import { displayModelName, supportsReasoning } from "../lib/format";
 import {
   agentComplete,
+  agentStream,
   cancelChat,
   chatOnce,
   chatStream,
   listModels,
   listReasoningModels,
+  onAgentDelta,
   pickFolder,
 } from "../lib/tauri";
 import {
@@ -724,21 +726,37 @@ export const useApp = create<AppState>((set, get) => ({
       for (let step = 0; step < MAX_AGENT_STEPS; step++) {
         if (agentAbort) break;
 
-        const resp = await agentComplete({
-          baseUrl: provider.baseUrl,
-          apiKey: provider.apiKey,
-          model: model.modelId,
-          messages: apiMessages,
-          tools: AGENT_TOOLS,
-          reasoningEffort: reasoning,
+        // Stream text tokens live via agent-delta events.
+        const unlisten = await onAgentDelta((e) => {
+          if (!agentAbort) {
+            patchMsg(curId, (m) => ({
+              ...m,
+              content: m.content + e.content,
+            }));
+          }
         });
+
+        let resp: Awaited<ReturnType<typeof agentStream>>;
+        try {
+          resp = await agentStream({
+            baseUrl: provider.baseUrl,
+            apiKey: provider.apiKey,
+            model: model.modelId,
+            messages: apiMessages,
+            tools: AGENT_TOOLS,
+            reasoningEffort: reasoning,
+          });
+        } finally {
+          unlisten();
+        }
         if (agentAbort) break;
 
         const calls = resp.tool_calls ?? [];
         const content = resp.content ?? "";
 
         if (calls.length === 0) {
-          patchMsg(curId, (m) => ({ ...m, content, streaming: false }));
+          // Content was already streamed via deltas — just stop streaming flag.
+          patchMsg(curId, (m) => ({ ...m, content: m.content || content, streaming: false }));
           finalize();
           return;
         }
@@ -761,9 +779,11 @@ export const useApp = create<AppState>((set, get) => ({
           args: c.arguments,
           status: "running",
         }));
+        // Content was streamed live — use whatever's in the message already.
+        // Only override if the model sent content but streaming didn't capture it.
         patchMsg(curId, (m) => ({
           ...m,
-          content: content || m.content,
+          content: m.content || content,
           toolSteps: steps,
           streaming: true,
         }));
