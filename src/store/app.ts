@@ -1042,7 +1042,7 @@ export const useApp = create<AppState>((set, get) => ({
     // independent of how fast the backend's cooperative cancel kicks in.
     // Any late chat-delta/done/error events are ignored because they guard on
     // activeRequestId, which we clear here.
-    if (activeRequestId && streamingSessionId) {
+    if (streamingSessionId) {
       set((s) => {
         const sessions = withSessionMessages(
           s.sessions,
