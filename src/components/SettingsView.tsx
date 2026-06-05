@@ -4,15 +4,29 @@ import { PROVIDER_PRESETS } from "../lib/presets";
 import { displayModelName } from "../lib/format";
 import { Select } from "./Select";
 import {
+  IconBell,
   IconClose,
+  IconCpu,
+  IconInfo,
   IconKeyboard,
+  IconPalette,
   IconPlus,
   IconServer,
+  IconShield,
   IconSliders,
   IconSparkle,
+  IconTrash,
 } from "./icons";
 
-type Section = "general" | "hotkeys" | "providers" | "models";
+type Section =
+  | "appearance"
+  | "agent"
+  | "permissions"
+  | "notifications"
+  | "hotkeys"
+  | "providers"
+  | "models"
+  | "about";
 
 const NAV: {
   group: string;
@@ -25,8 +39,16 @@ const NAV: {
   {
     group: "Приложение",
     items: [
-      { id: "general", label: "Основные", icon: IconSliders },
+      { id: "appearance", label: "Внешний вид", icon: IconPalette },
+      { id: "notifications", label: "Уведомления", icon: IconBell },
       { id: "hotkeys", label: "Хоткеи", icon: IconKeyboard },
+    ],
+  },
+  {
+    group: "Агент",
+    items: [
+      { id: "agent", label: "Настройки агента", icon: IconCpu },
+      { id: "permissions", label: "Разрешения", icon: IconShield },
     ],
   },
   {
@@ -36,15 +58,19 @@ const NAV: {
       { id: "models", label: "Модели", icon: IconSparkle },
     ],
   },
+  {
+    group: "",
+    items: [{ id: "about", label: "О приложении", icon: IconInfo }],
+  },
 ];
 
-const APP_VERSION = "v0.1.0";
+const APP_VERSION = "v0.2.0";
 
 const inputCls =
   "rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-2 text-[12.5px] outline-none transition-colors focus:border-[var(--color-faint)] placeholder:text-[var(--color-faint)]";
 
 export function SettingsView() {
-  const [section, setSection] = useState<Section>("general");
+  const [section, setSection] = useState<Section>("appearance");
   const close = useApp((s) => s.setView);
 
   useEffect(() => {
@@ -61,7 +87,7 @@ export function SettingsView() {
       onMouseDown={() => close("chat")}
     >
       <div
-        className="relative flex h-[560px] max-h-[88vh] w-[840px] max-w-[92vw] overflow-hidden rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-bg)] shadow-[0_30px_80px_rgba(0,0,0,0.7)]"
+        className="relative flex h-[620px] max-h-[90vh] w-[860px] max-w-[92vw] overflow-hidden rounded-2xl border border-[var(--color-border-strong)] bg-[var(--color-bg)] shadow-[0_30px_80px_rgba(0,0,0,0.7)]"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <button
@@ -73,57 +99,65 @@ export function SettingsView() {
         </button>
         {/* Sidebar */}
         <aside className="flex w-[220px] flex-col justify-between border-r border-[var(--color-border)] bg-[var(--color-rail)] px-3 py-5">
-        <nav className="flex flex-col gap-6">
-          {NAV.map((g) => (
-            <div key={g.group} className="flex flex-col gap-1">
-              <div className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wider text-[var(--color-faint)]">
-                {g.group}
-              </div>
-              {g.items.map((it) => {
-                const active = section === it.id;
-                const Icon = it.icon;
-                return (
-                  <button
-                    key={it.id}
-                    onClick={() => setSection(it.id)}
-                    className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-colors ${
-                      active
-                        ? "bg-[var(--color-surface-2)] font-medium text-white"
-                        : "text-[var(--color-muted)] hover:bg-[var(--color-surface)] hover:text-white"
-                    }`}
-                  >
-                    <Icon
-                      className={`h-[15px] w-[15px] ${
-                        active ? "text-white" : "text-[var(--color-faint)]"
+          <nav className="flex flex-col gap-5">
+            {NAV.map((g) => (
+              <div key={g.group || "extra"} className="flex flex-col gap-0.5">
+                {g.group && (
+                  <div className="px-2 pb-1.5 text-[11px] font-medium uppercase tracking-wider text-[var(--color-faint)]">
+                    {g.group}
+                  </div>
+                )}
+                {g.items.map((it) => {
+                  const active = section === it.id;
+                  const Icon = it.icon;
+                  return (
+                    <button
+                      key={it.id}
+                      onClick={() => setSection(it.id)}
+                      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] transition-colors ${
+                        active
+                          ? "bg-[var(--color-surface-2)] font-medium text-white"
+                          : "text-[var(--color-muted)] hover:bg-[var(--color-surface)] hover:text-white"
                       }`}
-                    />
-                    {it.label}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </nav>
+                    >
+                      <Icon
+                        className={`h-[15px] w-[15px] ${
+                          active ? "text-white" : "text-[var(--color-faint)]"
+                        }`}
+                      />
+                      {it.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </nav>
 
-        <div className="px-2">
-          <div className="text-[12px] font-semibold text-[#cfcfcf]">DapohCode</div>
-          <div className="text-[11px] text-[var(--color-faint)]">{APP_VERSION}</div>
-        </div>
-      </aside>
+          <div className="px-2">
+            <div className="text-[12px] font-semibold text-[#cfcfcf]">DapohCode</div>
+            <div className="text-[11px] text-[var(--color-faint)]">{APP_VERSION}</div>
+          </div>
+        </aside>
 
-      {/* Main panel */}
-      <div className="min-w-0 flex-1 overflow-y-auto px-8 py-7">
-        <div className="mx-auto max-w-2xl">
-          {section === "general" && <GeneralSection />}
-          {section === "hotkeys" && <HotkeysSection />}
-          {section === "providers" && <ProvidersSection />}
-          {section === "models" && <ModelsSection />}
+        {/* Main panel */}
+        <div className="min-w-0 flex-1 overflow-y-auto px-8 py-7">
+          <div className="mx-auto max-w-2xl">
+            {section === "appearance" && <AppearanceSection />}
+            {section === "notifications" && <NotificationsSection />}
+            {section === "hotkeys" && <HotkeysSection />}
+            {section === "agent" && <AgentSection />}
+            {section === "permissions" && <PermissionsSection />}
+            {section === "providers" && <ProvidersSection />}
+            {section === "models" && <ModelsSection />}
+            {section === "about" && <AboutSection />}
+          </div>
         </div>
-      </div>
       </div>
     </div>
   );
 }
+
+/* ───────────────────────── Shared ───────────────────────── */
 
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
@@ -136,15 +170,7 @@ function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   );
 }
 
-/* ───────────────────────── General ───────────────────────── */
-
-function Toggle({
-  on,
-  onClick,
-}: {
-  on: boolean;
-  onClick: () => void;
-}) {
+function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -164,43 +190,147 @@ function Toggle({
   );
 }
 
-function GeneralSection() {
-  const systemPrompt = useApp((s) => s.systemPrompt);
-  const setSystemPrompt = useApp((s) => s.setSystemPrompt);
+function SettingRow({
+  label,
+  description,
+  children,
+  noBorder,
+}: {
+  label: string;
+  description?: string;
+  children: ReactNode;
+  noBorder?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-start gap-4 py-4 ${
+        noBorder ? "" : "border-t border-[var(--color-border)]"
+      }`}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="text-[12.5px] font-medium text-[#e8e8e8]">{label}</div>
+        {description && (
+          <p className="mt-1 text-[11.5px] leading-relaxed text-[var(--color-faint)]">
+            {description}
+          </p>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center">{children}</div>
+    </div>
+  );
+}
+
+/* ───────────────────────── Appearance ───────────────────────── */
+
+function AppearanceSection() {
+  const theme = useApp((s) => s.theme);
+  const setTheme = useApp((s) => s.setTheme);
+
+  return (
+    <div>
+      <SectionTitle title="Внешний вид" sub="Тема интерфейса и отображение." />
+      <div className="flex flex-col">
+        <SettingRow label="Тема" description="Цветовая схема интерфейса." noBorder>
+          <div className="flex gap-2">
+            {(["dark", "light", "system"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTheme(t)}
+                className={`rounded-lg border px-3 py-1.5 text-[12px] transition-colors ${
+                  theme === t
+                    ? "border-white/30 bg-[var(--color-surface-2)] font-medium text-white"
+                    : "border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-border-strong)] hover:text-white"
+                }`}
+              >
+                {t === "dark" ? "Тёмная" : t === "light" ? "Светлая" : "Системная"}
+              </button>
+            ))}
+          </div>
+        </SettingRow>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── Notifications ───────────────────────── */
+
+function NotificationsSection() {
+  const notifyOnComplete = useApp((s) => s.notifyOnComplete);
+  const setNotifyOnComplete = useApp((s) => s.setNotifyOnComplete);
+
+  return (
+    <div>
+      <SectionTitle title="Уведомления" sub="Звуковые и системные уведомления." />
+      <div className="flex flex-col">
+        <SettingRow
+          label="Звук при завершении"
+          description="Проигрывать звуковой сигнал когда агент завершит выполнение задачи."
+          noBorder
+        >
+          <Toggle on={notifyOnComplete} onClick={() => setNotifyOnComplete(!notifyOnComplete)} />
+        </SettingRow>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── Agent ───────────────────────── */
+
+function AgentSection() {
+  const maxAgentSteps = useApp((s) => s.maxAgentSteps);
+  const setMaxAgentSteps = useApp((s) => s.setMaxAgentSteps);
+  const compactMode = useApp((s) => s.compactMode);
+  const setCompactMode = useApp((s) => s.setCompactMode);
+
+  return (
+    <div>
+      <SectionTitle title="Настройки агента" sub="Параметры поведения AI-агента." />
+      <div className="flex flex-col">
+        <SettingRow
+          label="Макс. шагов агента"
+          description="Максимальное количество итераций (tool calls) за один запрос. Больше шагов = сложнее задачи, но дольше."
+          noBorder
+        >
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={5}
+              max={100}
+              value={maxAgentSteps}
+              onChange={(e) => setMaxAgentSteps(parseInt(e.target.value) || 40)}
+              className="w-[70px] rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1.5 text-center font-mono text-[12.5px] outline-none transition-colors focus:border-[var(--color-faint)]"
+            />
+          </div>
+        </SettingRow>
+
+        <SettingRow
+          label="Компактные ответы"
+          description="Агент отвечает короче и по делу, без развёрнутых пояснений. Экономит токены."
+        >
+          <Toggle on={compactMode} onClick={() => setCompactMode(!compactMode)} />
+        </SettingRow>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── Permissions ───────────────────────── */
+
+function PermissionsSection() {
   const autoApply = useApp((s) => s.autoApply);
   const setAutoApply = useApp((s) => s.setAutoApply);
 
   return (
     <div>
-      <SectionTitle title="Основные" sub="Поведение ассистента по умолчанию." />
-      <div className="flex flex-col gap-5">
-        <div className="flex flex-col gap-2">
-          <label className="text-[12.5px] font-medium text-[#e8e8e8]">
-            Системный промпт
-          </label>
-          <textarea
-            value={systemPrompt}
-            onChange={(e) => setSystemPrompt(e.target.value)}
-            rows={6}
-            className="resize-y rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-[12.5px] leading-relaxed outline-none transition-colors focus:border-[var(--color-faint)]"
-          />
-          <p className="text-[11.5px] text-[var(--color-faint)]">
-            Добавляется в начало каждого диалога.
-          </p>
-        </div>
-
-        <div className="flex items-start gap-4 border-t border-[var(--color-border)] pt-5">
-          <div className="min-w-0 flex-1">
-            <div className="text-[12.5px] font-medium text-[#e8e8e8]">
-              Применять изменения автоматически
-            </div>
-            <p className="mt-1 text-[11.5px] text-[var(--color-faint)]">
-              Агент будет писать в файлы без запроса разрешения. По умолчанию
-              выключено — каждое изменение нужно подтвердить.
-            </p>
-          </div>
+      <SectionTitle title="Разрешения" sub="Контроль над тем, что агент может делать без подтверждения." />
+      <div className="flex flex-col">
+        <SettingRow
+          label="Авто-применение изменений"
+          description="Агент записывает файлы и выполняет команды без запроса разрешения. Опасно — включайте только если доверяете модели."
+          noBorder
+        >
           <Toggle on={autoApply} onClick={() => setAutoApply(!autoApply)} />
-        </div>
+        </SettingRow>
       </div>
     </div>
   );
@@ -211,7 +341,7 @@ function GeneralSection() {
 const HOTKEYS: { keys: string[]; desc: string }[] = [
   { keys: ["Enter"], desc: "Отправить сообщение" },
   { keys: ["Shift", "Enter"], desc: "Перенос строки" },
-  { keys: ["Esc"], desc: "Закрыть выпадающий список" },
+  { keys: ["Esc"], desc: "Закрыть настройки / выпадающий список" },
 ];
 
 function HotkeysSection() {
@@ -249,6 +379,74 @@ function HotkeysSection() {
   );
 }
 
+/* ───────────────────────── About ───────────────────────── */
+
+function AboutSection() {
+  const clearAllData = useApp((s) => s.clearAllData);
+  const sessions = useApp((s) => s.sessions);
+  const models = useApp((s) => s.models);
+  const providers = useApp((s) => s.providers);
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  return (
+    <div>
+      <SectionTitle title="О приложении" />
+
+      <div className="mb-6 overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
+          <span className="text-[12.5px] text-[var(--color-muted)]">Версия</span>
+          <span className="font-mono text-[12.5px] text-[#e8e8e8]">{APP_VERSION}</span>
+        </div>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
+          <span className="text-[12.5px] text-[var(--color-muted)]">Сессий</span>
+          <span className="font-mono text-[12.5px] text-[#e8e8e8]">{sessions.length}</span>
+        </div>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
+          <span className="text-[12.5px] text-[var(--color-muted)]">Провайдеров</span>
+          <span className="font-mono text-[12.5px] text-[#e8e8e8]">{providers.length}</span>
+        </div>
+        <div className="flex items-center justify-between px-4 py-3">
+          <span className="text-[12.5px] text-[var(--color-muted)]">Моделей</span>
+          <span className="font-mono text-[12.5px] text-[#e8e8e8]">{models.length}</span>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-[#3a2020] bg-[#1a1010] p-4">
+        <div className="mb-2 flex items-center gap-2">
+          <IconTrash className="h-4 w-4 text-[#e05050]" />
+          <span className="text-[13px] font-medium text-[#e8e8e8]">Очистить все данные</span>
+        </div>
+        <p className="mb-3 text-[11.5px] text-[var(--color-faint)]">
+          Удалить все сессии, провайдеров, модели и настройки. Это действие необратимо.
+        </p>
+        {!confirmClear ? (
+          <button
+            onClick={() => setConfirmClear(true)}
+            className="rounded-md border border-[#5a2020] bg-[#2a1515] px-3.5 py-2 text-[12.5px] font-medium text-[#e05050] transition-colors hover:bg-[#3a2020]"
+          >
+            Удалить всё
+          </button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => clearAllData()}
+              className="rounded-md bg-[#e05050] px-3.5 py-2 text-[12.5px] font-medium text-white transition-opacity hover:opacity-90"
+            >
+              Да, удалить
+            </button>
+            <button
+              onClick={() => setConfirmClear(false)}
+              className="rounded-md border border-[var(--color-border)] px-3.5 py-2 text-[12.5px] text-[var(--color-muted)] transition-colors hover:text-white"
+            >
+              Отмена
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ───────────────────────── Providers ───────────────────────── */
 
 function ProvidersSection() {
@@ -257,7 +455,6 @@ function ProvidersSection() {
   const removeProvider = useApp((s) => s.removeProvider);
   const fetchModels = useApp((s) => s.fetchModels);
 
-  // Inline connect form, opened from a catalogue row.
   const [connectIdx, setConnectIdx] = useState<number | null>(null);
   const [fName, setFName] = useState("");
   const [fBaseUrl, setFBaseUrl] = useState("");
@@ -294,7 +491,6 @@ function ProvidersSection() {
 
   return (
     <div>
-      {/* Connected providers (only when there are any) */}
       {providers.length > 0 && (
         <div className="mb-8">
           <h2 className="mb-3 text-[13px] font-semibold text-[var(--color-muted)]">
@@ -337,7 +533,6 @@ function ProvidersSection() {
         </div>
       )}
 
-      {/* Catalogue of all available providers */}
       <SectionTitle title="Провайдеры" sub="Выберите провайдера для подключения." />
       <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
         {PROVIDER_PRESETS.map((preset, i) => {

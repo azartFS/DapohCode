@@ -30,13 +30,13 @@ import {
   runReadTool,
 } from "../lib/agentTools";
 
-const MAX_AGENT_STEPS = 40;
+// maxAgentSteps is now a persisted setting, read from store in runAgent.
 
 /** Module-level agent-loop control (one loop at a time). */
 let agentAbort = false;
 let permResolver: ((ok: boolean) => void) | null = null;
 
-function agentSystemPreamble(root: string, memoryContent?: string): string {
+function agentSystemPreamble(root: string, memoryContent?: string, compact?: boolean): string {
   const parts: string[] = [];
 
   // ── Identity ──
@@ -119,7 +119,7 @@ ${memoryContent}`);
 - По завершении — короткое резюме: что изменено, в каких файлах, почему.
 - Не утверждай, что сделал то, чего не делал. Только реальные действия.
 - Если задача неоднозначна — сделай разумное допущение и укажи его. Не спрашивай по мелочам.
-- Действуй АВТОНОМНО: разбей задачу на шаги и доведи до конца. Спрашивай только при реальном риске потери данных или критической неоднозначности.`);
+- Действуй АВТОНОМНО: разбей задачу на шаги и доведи до конца. Спрашивай только при реальном риске потери данных или критической неоднозначности.${compact ? "\n\nРЕЖИМ КОМПАКТНЫХ ОТВЕТОВ: отвечай максимально кратко. Только код + одно предложение резюме. Без пояснений, рассуждений и преамбул. Экономь токены." : ""}\`);
 
   // ── Quality ──
   parts.push(`# Стандарт качества
@@ -181,6 +181,10 @@ interface Persisted {
   projectName: string | null;
   projectPath: string | null;
   mode: Mode;
+  maxAgentSteps: number;
+  notifyOnComplete: boolean;
+  compactMode: boolean;
+  theme: "dark" | "light" | "system";
 }
 
 const DEFAULTS: Persisted = {
@@ -197,6 +201,10 @@ const DEFAULTS: Persisted = {
   projectName: null,
   projectPath: null,
   mode: "solo",
+  maxAgentSteps: 40,
+  notifyOnComplete: true,
+  compactMode: false,
+  theme: "dark",
 };
 
 function sanitizeMessages(arr: unknown): ChatMessage[] {
@@ -262,6 +270,10 @@ function loadPersisted(): Persisted {
       projectName: typeof p.projectName === "string" ? p.projectName : null,
       projectPath: typeof p.projectPath === "string" ? p.projectPath : null,
       mode: "solo",
+      maxAgentSteps: typeof p.maxAgentSteps === "number" ? Math.min(Math.max(p.maxAgentSteps, 5), 100) : DEFAULTS.maxAgentSteps,
+      notifyOnComplete: typeof p.notifyOnComplete === "boolean" ? p.notifyOnComplete : DEFAULTS.notifyOnComplete,
+      compactMode: typeof p.compactMode === "boolean" ? p.compactMode : DEFAULTS.compactMode,
+      theme: (["dark", "light", "system"] as const).includes(p.theme as "dark") ? (p.theme as "dark") : DEFAULTS.theme,
     };
   } catch {
     return { ...DEFAULTS };
@@ -304,6 +316,11 @@ interface AppState extends Persisted {
   setTemperature: (v: number) => void;
   setReasoningEffort: (v: ReasoningEffort) => void;
   setAutoApply: (v: boolean) => void;
+  setMaxAgentSteps: (v: number) => void;
+  setNotifyOnComplete: (v: boolean) => void;
+  setCompactMode: (v: boolean) => void;
+  setTheme: (v: "dark" | "light" | "system") => void;
+  clearAllData: () => void;
 
   /** Pending file-change permission request (agent mode), or null. */
   pendingPerm: { stepId: string; name: string; path: string } | null;
@@ -350,6 +367,10 @@ function persist(state: Persisted) {
     projectName: state.projectName,
     projectPath: state.projectPath,
     mode: state.mode,
+    maxAgentSteps: state.maxAgentSteps,
+    notifyOnComplete: state.notifyOnComplete,
+    compactMode: state.compactMode,
+    theme: state.theme,
   };
   try {
     window.localStorage.setItem(STORE_KEY, JSON.stringify(data));
@@ -503,6 +524,38 @@ export const useApp = create<AppState>((set, get) => ({
       persist({ ...s, autoApply: v });
       return { autoApply: v };
     }),
+
+  setMaxAgentSteps: (v) =>
+    set((s) => {
+      const clamped = Math.min(Math.max(Math.round(v), 5), 100);
+      persist({ ...s, maxAgentSteps: clamped });
+      return { maxAgentSteps: clamped };
+    }),
+
+  setNotifyOnComplete: (v) =>
+    set((s) => {
+      persist({ ...s, notifyOnComplete: v });
+      return { notifyOnComplete: v };
+    }),
+
+  setCompactMode: (v) =>
+    set((s) => {
+      persist({ ...s, compactMode: v });
+      return { compactMode: v };
+    }),
+
+  setTheme: (v) =>
+    set((s) => {
+      persist({ ...s, theme: v });
+      return { theme: v };
+    }),
+
+  clearAllData: () => {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(STORE_KEY);
+      window.location.reload();
+    }
+  },
 
   resolvePermission: (ok) => {
     const r = permResolver;
@@ -735,7 +788,7 @@ export const useApp = create<AppState>((set, get) => ({
 
     const sysParts: string[] = [];
     if (get().systemPrompt.trim()) sysParts.push(get().systemPrompt.trim());
-    sysParts.push(agentSystemPreamble(root, memoryContent));
+    sysParts.push(agentSystemPreamble(root, memoryContent, get().compactMode));
     apiMessages.push({ role: "system", content: sysParts.join("\n\n") });
     for (const m of sess0?.messages ?? []) {
       if (m.id === curId || m.error) continue;
@@ -781,7 +834,7 @@ export const useApp = create<AppState>((set, get) => ({
     };
 
     try {
-      for (let step = 0; step < MAX_AGENT_STEPS; step++) {
+      for (let step = 0; step < get().maxAgentSteps; step++) {
         if (agentAbort) break;
 
         // Stream text tokens live via agent-delta events.
