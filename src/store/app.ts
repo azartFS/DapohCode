@@ -1184,6 +1184,7 @@ export const useApp = create<AppState>((set, get) => ({
         apiKey: provider.apiKey,
         model: model.modelId,
         messages: apiMessages,
+        temperature: s.temperature,
         reasoningEffort: supportsReasoning(
           get().reasoningModelIds,
           model.modelId,
@@ -1267,9 +1268,14 @@ export const useApp = create<AppState>((set, get) => ({
       if (s.activeRequestId !== requestId || !s.streamingSessionId) return {};
       const sid = s.streamingSessionId;
       const sessions = withSessionMessages(s.sessions, sid, (msgs) =>
-        msgs.map((m) =>
-          m.id === s.streamingMsgId ? { ...m, streaming: false } : m,
-        ),
+        msgs.map((m) => {
+          if (m.id !== s.streamingMsgId) return m;
+          // If the model returned no content at all, show an error.
+          if (m.content.trim().length === 0) {
+            return { ...m, streaming: false, error: true, content: "Модель не вернула ответ. Проверь API-ключ, выбранную модель и провайдера." };
+          }
+          return { ...m, streaming: false };
+        }),
       );
       const sess = sessions.find((x) => x.id === sid);
       const realMsgs =

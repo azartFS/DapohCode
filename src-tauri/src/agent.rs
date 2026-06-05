@@ -7,6 +7,7 @@
 use std::sync::atomic::Ordering;
 
 use futures_util::StreamExt;
+use tokio::time::{timeout, Duration};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
@@ -140,7 +141,7 @@ pub async fn agent_stream(
     req: AgentRequest,
 ) -> Result<AgentResponse, String> {
     let flag = cancel.0.clone();
-    // Don't reset flag here — stop() sets it externally.
+    flag.store(false, Ordering::SeqCst);
 
     let base = req.base_url.trim_end_matches('/');
     let url = format!("{base}/chat/completions");
@@ -171,11 +172,15 @@ pub async fn agent_stream(
     let mut content = String::new();
     let mut tool_calls: Vec<PartialToolCall> = Vec::new();
 
-    while let Some(chunk) = byte_stream.next().await {
-        if flag.load(Ordering::SeqCst) {
-            break;
-        }
-        let chunk = match chunk {
+    while !flag.load(Ordering::SeqCst) {
+        // Per-chunk timeout: if the server sends nothing for 120 s, give up.
+        let maybe_chunk = match timeout(Duration::from_secs(120), byte_stream.next()).await {
+            Ok(Some(chunk)) => Some(chunk),
+            Ok(None) => None,
+            Err(_) => return Err("Таймаут: сервер не отвечает более 120 секунд".to_string()),
+        };
+        let Some(chunk_result) = maybe_chunk else { break };
+        let chunk = match chunk_result {
             Ok(c) => c,
             Err(e) => return Err(format!("Ошибка потока: {e}")),
         };
@@ -199,7 +204,12 @@ pub async fn agent_stream(
                 continue;
             };
 
-            let delta = &json["choices"][0]["delta"];
+            let delta = json
+                .get("choices")
+                .and_then(|c| c.get(0))
+                .and_then(|c| c.get("delta"));
+
+            let Some(delta) = delta else { continue };
 
             // Content token
             if let Some(c) = delta.get("content").and_then(|c| c.as_str()) {
@@ -211,6 +221,21 @@ pub async fn agent_stream(
                             content: c.to_string(),
                         },
                     );
+                }
+            }
+
+            // Reasoning/thinking tokens (DeepSeek R1, QwQ, etc.)
+            for key in &["reasoning_content", "thinking", "reasoning"] {
+                if let Some(rc) = delta.get(*key).and_then(|v| v.as_str()) {
+                    if !rc.is_empty() {
+                        content.push_str(rc);
+                        let _ = app.emit(
+                            "agent-delta",
+                            AgentDeltaEvent {
+                                content: rc.to_string(),
+                            },
+                        );
+                    }
                 }
             }
 

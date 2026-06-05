@@ -2,6 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use futures_util::StreamExt;
+use tokio::time::{timeout, Duration};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
@@ -127,13 +128,21 @@ pub async fn chat_stream(
     let mut stream = resp.bytes_stream();
     let mut buf = String::new();
 
-    while let Some(chunk) = stream.next().await {
-        if flag.load(Ordering::SeqCst) {
-            emit_done(&app, &req.request_id);
-            return Ok(());
-        }
-
-        let chunk = match chunk {
+    while !flag.load(Ordering::SeqCst) {
+        // Per-chunk timeout: if the server sends nothing for 120 s, give up.
+        let maybe_chunk = match timeout(Duration::from_secs(120), stream.next()).await {
+            Ok(Some(chunk)) => Some(chunk),
+            Ok(None) => None, // stream naturally ended
+            Err(_) => {
+                return Err(emit_error(
+                    &app,
+                    &req.request_id,
+                    "Таймаут: сервер не отвечает более 120 секунд".to_string(),
+                ));
+            }
+        };
+        let Some(chunk_result) = maybe_chunk else { break };
+        let chunk = match chunk_result {
             Ok(c) => c,
             Err(e) => {
                 return Err(emit_error(
@@ -161,21 +170,38 @@ pub async fn chat_stream(
                 return Ok(());
             }
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
-                if let Some(content) = json
+                let delta = json
                     .get("choices")
                     .and_then(|c| c.get(0))
-                    .and_then(|c| c.get("delta"))
-                    .and_then(|d| d.get("content"))
-                    .and_then(|c| c.as_str())
-                {
-                    if !content.is_empty() {
-                        let _ = app.emit(
-                            "chat-delta",
-                            DeltaEvent {
-                                request_id: req.request_id.clone(),
-                                content: content.to_string(),
-                            },
-                        );
+                    .and_then(|c| c.get("delta"));
+
+                if let Some(delta) = delta {
+                    // Standard content tokens
+                    if let Some(c) = delta.get("content").and_then(|c| c.as_str()) {
+                        if !c.is_empty() {
+                            let _ = app.emit(
+                                "chat-delta",
+                                DeltaEvent {
+                                    request_id: req.request_id.clone(),
+                                    content: c.to_string(),
+                                },
+                            );
+                        }
+                    }
+                    // Reasoning/thinking tokens (DeepSeek R1, QwQ, etc.)
+                    // Emit as regular content so the user sees something.
+                    for key in &["reasoning_content", "thinking", "reasoning"] {
+                        if let Some(rc) = delta.get(*key).and_then(|v| v.as_str()) {
+                            if !rc.is_empty() {
+                                let _ = app.emit(
+                                    "chat-delta",
+                                    DeltaEvent {
+                                        request_id: req.request_id.clone(),
+                                        content: rc.to_string(),
+                                    },
+                                );
+                            }
+                        }
                     }
                 }
             }
