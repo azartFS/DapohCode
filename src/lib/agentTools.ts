@@ -118,7 +118,7 @@ export const AGENT_TOOLS = [
     function: {
       name: "run_command",
       description:
-        "Выполнить shell-команду в корне проекта (npm install, cargo build, git status и т.д.). Возвращает stdout, stderr и exit code. Таймаут по умолчанию 120 сек.",
+        "Выполнить shell-команду в корне проекта (npm install, cargo build, git status и т.д.). Возвращает stdout, stderr и exit code. Таймаут по умолчанию 120 сек. Пути с пробелами работают — оборачивай в кавычки.",
       parameters: {
         type: "object",
         properties: {
