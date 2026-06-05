@@ -38,7 +38,7 @@ const NAV: {
   },
 ];
 
-const APP_VERSION = "v0.1.0";
+const APP_VERSION = "v0.2.0";
 
 const inputCls =
   "rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-2 text-[12.5px] outline-none transition-colors focus:border-[var(--color-faint)] placeholder:text-[var(--color-faint)]";
@@ -164,43 +164,107 @@ function Toggle({
   );
 }
 
+/** Divider row between setting groups. */
+function SettingRow({
+  label,
+  description,
+  children,
+  noBorder,
+}: {
+  label: string;
+  description?: string;
+  children: ReactNode;
+  noBorder?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-start gap-4 py-4 ${
+        noBorder ? "" : "border-t border-[var(--color-border)]"
+      }`}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="text-[12.5px] font-medium text-[#e8e8e8]">{label}</div>
+        {description && (
+          <p className="mt-1 text-[11.5px] leading-relaxed text-[var(--color-faint)]">
+            {description}
+          </p>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center">{children}</div>
+    </div>
+  );
+}
+
+const EFFORT_OPTIONS: { value: string; label: string }[] = [
+  { value: "minimal", label: "Минимальная" },
+  { value: "low", label: "Низкая" },
+  { value: "medium", label: "Средняя" },
+  { value: "high", label: "Высокая" },
+];
+
 function GeneralSection() {
-  const systemPrompt = useApp((s) => s.systemPrompt);
-  const setSystemPrompt = useApp((s) => s.setSystemPrompt);
   const autoApply = useApp((s) => s.autoApply);
   const setAutoApply = useApp((s) => s.setAutoApply);
+  const temperature = useApp((s) => s.temperature);
+  const setTemperature = useApp((s) => s.setTemperature);
+  const reasoningEffort = useApp((s) => s.reasoningEffort);
+  const setReasoningEffort = useApp((s) => s.setReasoningEffort);
 
   return (
     <div>
-      <SectionTitle title="Основные" sub="Поведение ассистента по умолчанию." />
-      <div className="flex flex-col gap-5">
-        <div className="flex flex-col gap-2">
-          <label className="text-[12.5px] font-medium text-[#e8e8e8]">
-            Системный промпт
-          </label>
-          <textarea
-            value={systemPrompt}
-            onChange={(e) => setSystemPrompt(e.target.value)}
-            rows={6}
-            className="resize-y rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-[12.5px] leading-relaxed outline-none transition-colors focus:border-[var(--color-faint)]"
-          />
-          <p className="text-[11.5px] text-[var(--color-faint)]">
-            Добавляется в начало каждого диалога.
-          </p>
-        </div>
-
-        <div className="flex items-start gap-4 border-t border-[var(--color-border)] pt-5">
-          <div className="min-w-0 flex-1">
-            <div className="text-[12.5px] font-medium text-[#e8e8e8]">
-              Применять изменения автоматически
-            </div>
-            <p className="mt-1 text-[11.5px] text-[var(--color-faint)]">
-              Агент будет писать в файлы без запроса разрешения. По умолчанию
-              выключено — каждое изменение нужно подтвердить.
-            </p>
+      <SectionTitle title="Основные" sub="Параметры модели и поведения агента." />
+      <div className="flex flex-col">
+        {/* Temperature */}
+        <SettingRow
+          label="Температура"
+          description="Креативность ответов модели. 0 — детерминированно, 1 — баланс, 2 — максимальная вариативность."
+          noBorder
+        >
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min="0"
+              max="2"
+              step="0.1"
+              value={temperature}
+              onChange={(e) => setTemperature(parseFloat(e.target.value))}
+              className="h-1 w-[120px] cursor-pointer appearance-none rounded-full bg-[var(--color-surface-2)] accent-white [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+            />
+            <span className="w-[32px] text-right font-mono text-[12px] text-[var(--color-muted)]">
+              {temperature.toFixed(1)}
+            </span>
           </div>
+        </SettingRow>
+
+        {/* Reasoning effort */}
+        <SettingRow
+          label="Глубина мышления"
+          description="Сколько ресурсов модель тратит на рассуждения. Работает только с моделями, поддерживающими reasoning."
+        >
+          <select
+            value={reasoningEffort}
+            onChange={(e) =>
+              setReasoningEffort(
+                e.target.value as "minimal" | "low" | "medium" | "high",
+              )
+            }
+            className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1.5 text-[12.5px] outline-none transition-colors focus:border-[var(--color-faint)]"
+          >
+            {EFFORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </SettingRow>
+
+        {/* Auto-apply */}
+        <SettingRow
+          label="Авто-применение"
+          description="Агент применяет изменения в файлы и выполняет команды без запроса разрешения."
+        >
           <Toggle on={autoApply} onClick={() => setAutoApply(!autoApply)} />
-        </div>
+        </SettingRow>
       </div>
     </div>
   );
