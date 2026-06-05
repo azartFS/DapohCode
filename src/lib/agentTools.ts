@@ -6,6 +6,7 @@ import {
   readDir,
   readTextFile,
   readTree,
+  runCommand,
   searchText,
   writeTextFile,
 } from "./tauri";
@@ -114,6 +115,28 @@ export const AGENT_TOOLS = [
   {
     type: "function",
     function: {
+      name: "run_command",
+      description:
+        "Выполнить shell-команду в корне проекта (npm install, cargo build, git status и т.д.). Возвращает stdout, stderr и exit code. Таймаут по умолчанию 120 сек.",
+      parameters: {
+        type: "object",
+        properties: {
+          command: {
+            type: "string",
+            description: "Команда для выполнения, напр. npm install или cargo build",
+          },
+          timeout_secs: {
+            type: "number",
+            description: "Таймаут в секундах (по умолчанию 120, макс 300)",
+          },
+        },
+        required: ["command"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "delete_file",
       description: "Удалить файл в проекте.",
       parameters: {
@@ -129,6 +152,11 @@ export const AGENT_TOOLS = [
 
 export function isWriteTool(name: string): boolean {
   return name === "write_file" || name === "edit_file" || name === "delete_file";
+}
+
+/** Tools that need user permission but don't produce a file diff. */
+export function isCommandTool(name: string): boolean {
+  return name === "run_command";
 }
 
 function sep(root: string): string {
@@ -236,6 +264,24 @@ export async function prepareWrite(
     return { path, oldContent, newContent, diff: diffLines(oldContent, newContent) };
   }
   throw new Error(`Неизвестный инструмент записи: ${name}`);
+}
+
+/** Execute a shell command in the project root. Returns formatted output for the model. */
+export async function executeCommand(
+  root: string,
+  args: Record<string, unknown>,
+): Promise<string> {
+  const cmd = String(args.command ?? "");
+  if (!cmd.trim()) throw new Error("run_command: пустая команда");
+  const timeout = typeof args.timeout_secs === "number" ? args.timeout_secs : undefined;
+  const result = await runCommand(cmd, root, timeout);
+  const parts: string[] = [];
+  if (result.stdout.trim()) parts.push(result.stdout.trim());
+  if (result.stderr.trim()) parts.push(`[stderr]\n${result.stderr.trim()}`);
+  if (result.timed_out) parts.push("[таймаут — команда убита]");
+  const exitInfo = result.exit_code !== null ? `exit code: ${result.exit_code}` : "exit code: N/A";
+  const output = parts.length > 0 ? parts.join("\n") : "(нет вывода)";
+  return clamp(`$ ${cmd}\n${output}\n${exitInfo}`);
 }
 
 /** Apply a prepared mutation to disk. */

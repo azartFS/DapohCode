@@ -1,8 +1,10 @@
 mod agent;
 mod chat;
+mod cmd;
 mod fs;
 
 use agent::agent_complete;
+use cmd::run_command;
 use chat::{
     cancel_chat, chat_once, chat_stream, list_models, list_reasoning_models, CancelState,
 };
@@ -30,7 +32,8 @@ pub fn run() {
             rename_entry,
             delete_entry,
             read_tree,
-            search_text
+            search_text,
+            run_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

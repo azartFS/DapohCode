@@ -23,12 +23,14 @@ const LABEL: Record<string, string> = {
   write_file: "Запись",
   edit_file: "Правка",
   delete_file: "Удаление",
+  run_command: "Команда",
 };
 
 function ToolIcon({ name, className }: { name: string; className?: string }) {
   if (name === "list_dir") return <IconList className={className} />;
   if (name === "edit_file") return <IconPencil className={className} />;
   if (name === "delete_file") return <IconTrash className={className} />;
+  if (name === "run_command") return <IconFileText className={className} />;
   return <IconFileText className={className} />;
 }
 
@@ -88,7 +90,8 @@ export function ToolStepCard({ step }: { step: ToolStep }) {
   const isWrite =
     step.name === "write_file" ||
     step.name === "edit_file" ||
-    step.name === "delete_file";
+    step.name === "delete_file" ||
+    step.name === "run_command";
   const awaiting = pendingPerm?.stepId === step.id;
   const [open, setOpen] = useState(isWrite);
 

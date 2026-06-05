@@ -69,6 +69,30 @@ export async function searchText(
   });
 }
 
+/* ─────────────────────────── Shell (run_command) ──────────────────────── */
+
+export interface RunCommandResult {
+  exit_code: number | null;
+  stdout: string;
+  stderr: string;
+  timed_out: boolean;
+}
+
+/** Execute a shell command inside a directory with a timeout. */
+export async function runCommand(
+  command: string,
+  cwd: string,
+  timeoutSecs?: number,
+): Promise<RunCommandResult> {
+  return await invoke<RunCommandResult>("run_command", {
+    req: {
+      command,
+      cwd,
+      timeout_secs: timeoutSecs ?? null,
+    },
+  });
+}
+
 /* ─────────────────────────── Agent (tool-calling) ──────────────────────── */
 
 export interface AgentToolCall {

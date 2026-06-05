@@ -20,6 +20,8 @@ import {
 import {
   AGENT_TOOLS,
   applyWrite,
+  executeCommand,
+  isCommandTool,
   isWriteTool,
   parseArgs,
   prepareWrite,
@@ -48,6 +50,7 @@ function agentSystemPreamble(root: string): string {
     "• write_file(path, content) — создать новый файл или ПОЛНОСТЬЮ перезаписать. Передавай полное содержимое.",
     "• edit_file(path, old_string, new_string) — точечная замена. old_string должен совпадать ДОСЛОВНО (с пробелами/отступами) и встречаться РОВНО один раз — включай достаточно контекста для уникальности.",
     "• delete_file(path) — удалить файл.",
+    "• run_command(command) — выполнить shell-команду в корне проекта (npm install, cargo build, git diff и т.д.).",
     "",
     "# Анализ / изучение проекта",
     "Если просят проанализировать, изучить, разобрать проект или понять, как он устроен — это значит изучить ПРОЕКТ ЦЕЛИКОМ, а не только структуру папок:",
@@ -771,7 +774,45 @@ export const useApp = create<AppState>((set, get) => ({
           const dispPath = args.path != null ? String(args.path) : undefined;
           let resultText = "";
           try {
-            if (!isWriteTool(c.name)) {
+            if (isCommandTool(c.name)) {
+              // Shell command — needs permission like writes but no diff.
+              const cmdStr = String(args.command ?? "");
+              const auto = get().autoApply;
+              patchStep(curId, c.id, (s) => ({
+                ...s,
+                path: cmdStr,
+                status: auto ? "running" : "awaiting",
+              }));
+              let ok = auto;
+              if (!auto) {
+                ok = await new Promise<boolean>((resolve) => {
+                  permResolver = resolve;
+                  set({
+                    pendingPerm: {
+                      stepId: c.id,
+                      name: c.name,
+                      path: cmdStr,
+                    },
+                  });
+                });
+              }
+              if (agentAbort) ok = false;
+              if (ok) {
+                resultText = await executeCommand(root, args);
+                patchStep(curId, c.id, (s) => ({
+                  ...s,
+                  status: "ok",
+                  result: clip(resultText),
+                }));
+              } else {
+                resultText = "Пользователь отклонил выполнение команды.";
+                patchStep(curId, c.id, (s) => ({
+                  ...s,
+                  status: "denied",
+                  result: resultText,
+                }));
+              }
+            } else if (!isWriteTool(c.name)) {
               patchStep(curId, c.id, (s) => ({ ...s, path: dispPath }));
               resultText = await runReadTool(root, c.name, args);
               patchStep(curId, c.id, (s) => ({
