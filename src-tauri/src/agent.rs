@@ -227,20 +227,18 @@ pub async fn agent_stream(
                     },
                 );
             } else {
-                // Reasoning/thinking tokens (DeepSeek R1, QwQ, etc.)
-                // Only when `content` is absent — some providers (NVIDIA)
-                // duplicate text across both fields.
+                // Reasoning/thinking tokens — separate event so UI can
+                // display them differently (muted) or hide them.
                 for key in &["reasoning_content", "thinking", "reasoning"] {
                     if let Some(rc) = delta.get(*key).and_then(|v| v.as_str()) {
                         if !rc.is_empty() {
-                            content.push_str(rc);
                             let _ = app.emit(
-                                "agent-delta",
+                                "agent-reasoning-delta",
                                 AgentDeltaEvent {
                                     content: rc.to_string(),
                                 },
                             );
-                            break; // emit only the first non-empty reasoning field
+                            break;
                         }
                     }
                 }

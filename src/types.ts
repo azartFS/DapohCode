@@ -51,6 +51,8 @@ export interface ChatMessage {
   id: string;
   role: Role;
   content: string;
+  /** Reasoning/thinking tokens from the model (shown muted when enabled). */
+  reasoning?: string;
   /** Tool calls the assistant made in this turn (agent mode). */
   toolSteps?: ToolStep[];
   /** true while tokens are still streaming into this message */

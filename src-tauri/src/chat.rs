@@ -193,19 +193,19 @@ pub async fn chat_stream(
                         );
                     } else {
                         // Reasoning/thinking tokens (DeepSeek R1, QwQ, etc.)
-                        // Only used when `content` is absent — some providers
-                        // (NVIDIA) duplicate text across both fields.
+                        // Emitted as a separate event so the frontend can
+                        // display them differently (muted text vs normal).
                         for key in &["reasoning_content", "thinking", "reasoning"] {
                             if let Some(rc) = delta.get(*key).and_then(|v| v.as_str()) {
                                 if !rc.is_empty() {
                                     let _ = app.emit(
-                                        "chat-delta",
+                                        "chat-reasoning-delta",
                                         DeltaEvent {
                                             request_id: req.request_id.clone(),
                                             content: rc.to_string(),
                                         },
                                     );
-                                    break; // emit only from the first non-empty reasoning field
+                                    break;
                                 }
                             }
                         }

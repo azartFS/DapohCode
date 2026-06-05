@@ -4,7 +4,7 @@ import { Rail } from "./components/Rail";
 import { Header } from "./components/Header";
 import { ChatView } from "./components/ChatView";
 import { SettingsView } from "./components/SettingsView";
-import { onChatDelta, onChatDone, onChatError } from "./lib/tauri";
+import { onChatDelta, onChatDone, onChatError, onChatReasoningDelta } from "./lib/tauri";
 
 function useThemeEffect() {
   const theme = useApp((s) => s.theme);
@@ -37,6 +37,8 @@ export default function App() {
       });
 
     void track(onChatDelta((e) => appendDelta(e.request_id, e.content)));
+    const { appendReasoningDelta } = useApp.getState();
+    void track(onChatReasoningDelta((e) => appendReasoningDelta(e.request_id, e.content)));
     void track(onChatDone((e) => finishStream(e.request_id)));
     void track(onChatError((e) => failStream(e.request_id, e.message)));
 

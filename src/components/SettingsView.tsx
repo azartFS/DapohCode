@@ -328,6 +328,8 @@ function NotificationsSection() {
 function AgentSection() {
   const compactMode = useApp((s) => s.compactMode);
   const setCompactMode = useApp((s) => s.setCompactMode);
+  const showThinking = useApp((s) => s.showThinking);
+  const setShowThinking = useApp((s) => s.setShowThinking);
 
   return (
     <div>
@@ -339,6 +341,12 @@ function AgentSection() {
           noBorder
         >
           <Toggle on={compactMode} onClick={() => setCompactMode(!compactMode)} />
+        </SettingRow>
+        <SettingRow
+          label="Показывать размышления"
+          description="Отображать процесс мышления модели (reasoning tokens) приглушённым текстом. Если выключено — просто индикатор «Думаю…»."
+        >
+          <Toggle on={showThinking} onClick={() => setShowThinking(!showThinking)} />
         </SettingRow>
       </div>
     </div>

@@ -251,3 +251,11 @@ export function onChatDone(cb: (e: DoneEvent) => void): Promise<UnlistenFn> {
 export function onChatError(cb: (e: ErrorEvent) => void): Promise<UnlistenFn> {
   return listen<ErrorEvent>("chat-error", (e) => cb(e.payload));
 }
+
+export function onChatReasoningDelta(cb: (e: DeltaEvent) => void): Promise<UnlistenFn> {
+  return listen<DeltaEvent>("chat-reasoning-delta", (e) => cb(e.payload));
+}
+
+export function onAgentReasoningDelta(cb: (e: AgentDeltaEvent) => void): Promise<UnlistenFn> {
+  return listen<AgentDeltaEvent>("agent-reasoning-delta", (e) => cb(e.payload));
+}

@@ -17,6 +17,7 @@ import {
   listModels,
   listReasoningModels,
   onAgentDelta,
+  onAgentReasoningDelta,
   pickFolder,
 } from "../lib/tauri";
 import {
@@ -186,6 +187,7 @@ interface Persisted {
   compactMode: boolean;
   theme: "dark" | "light" | "system";
   language: "ru" | "en";
+  showThinking: boolean;
 }
 
 const DEFAULTS: Persisted = {
@@ -207,6 +209,7 @@ const DEFAULTS: Persisted = {
   compactMode: false,
   theme: "dark",
   language: "ru",
+  showThinking: false,
 };
 
 function sanitizeMessages(arr: unknown): ChatMessage[] {
@@ -220,6 +223,7 @@ function sanitizeMessages(arr: unknown): ChatMessage[] {
       // never restore a "streaming" state across reloads
       streaming: false,
       error: !!m.error,
+      ...(typeof m.reasoning === "string" && m.reasoning ? { reasoning: m.reasoning } : {}),
       ...(Array.isArray(m.toolSteps) ? { toolSteps: m.toolSteps } : {}),
     }));
 }
@@ -277,6 +281,7 @@ function loadPersisted(): Persisted {
       compactMode: typeof p.compactMode === "boolean" ? p.compactMode : DEFAULTS.compactMode,
       theme: (["dark", "light", "system"] as const).includes(p.theme as "dark") ? (p.theme as "dark") : DEFAULTS.theme,
       language: (["ru", "en"] as const).includes(p.language as "ru") ? (p.language as "ru") : DEFAULTS.language,
+      showThinking: typeof p.showThinking === "boolean" ? p.showThinking : DEFAULTS.showThinking,
     };
   } catch {
     return { ...DEFAULTS };
@@ -342,6 +347,7 @@ interface AppState extends Persisted {
   setCompactMode: (v: boolean) => void;
   setTheme: (v: "dark" | "light" | "system") => void;
   setLanguage: (v: "ru" | "en") => void;
+  setShowThinking: (v: boolean) => void;
   clearAllData: () => void;
 
   /** Pending file-change permission request (agent mode), or null. */
@@ -370,6 +376,7 @@ interface AppState extends Persisted {
   stop: () => Promise<void>;
 
   appendDelta: (requestId: string, content: string) => void;
+  appendReasoningDelta: (requestId: string, content: string) => void;
   finishStream: (requestId: string) => void;
   failStream: (requestId: string, message: string) => void;
 }
@@ -394,6 +401,7 @@ function persist(state: Persisted) {
     compactMode: state.compactMode,
     theme: state.theme,
     language: state.language,
+    showThinking: state.showThinking,
   };
   try {
     window.localStorage.setItem(STORE_KEY, JSON.stringify(data));
@@ -570,6 +578,12 @@ export const useApp = create<AppState>((set, get) => ({
     set((s) => {
       persist({ ...s, language: v });
       return { language: v };
+    }),
+
+  setShowThinking: (v) =>
+    set((s) => {
+      persist({ ...s, showThinking: v });
+      return { showThinking: v };
     }),
 
   clearAllData: () => {
@@ -869,6 +883,14 @@ export const useApp = create<AppState>((set, get) => ({
             }));
           }
         });
+        const unlistenReasoning = await onAgentReasoningDelta((e) => {
+          if (!agentAbort) {
+            patchMsg(curId, (m) => ({
+              ...m,
+              reasoning: (m.reasoning ?? "") + e.content,
+            }));
+          }
+        });
 
         let resp: Awaited<ReturnType<typeof agentStream>>;
         try {
@@ -882,6 +904,7 @@ export const useApp = create<AppState>((set, get) => ({
           });
         } finally {
           unlisten();
+          unlistenReasoning();
         }
         if (agentAbort) break;
 
@@ -1276,6 +1299,22 @@ export const useApp = create<AppState>((set, get) => ({
           msgs.map((m) =>
             m.id === s.streamingMsgId
               ? { ...m, content: m.content + content }
+              : m,
+          ),
+      );
+      return { sessions };
+    }),
+
+  appendReasoningDelta: (requestId, content) =>
+    set((s) => {
+      if (s.activeRequestId !== requestId || !s.streamingSessionId) return {};
+      const sessions = withSessionMessages(
+        s.sessions,
+        s.streamingSessionId,
+        (msgs) =>
+          msgs.map((m) =>
+            m.id === s.streamingMsgId
+              ? { ...m, reasoning: (m.reasoning ?? "") + content }
               : m,
           ),
       );
