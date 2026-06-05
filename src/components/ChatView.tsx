@@ -39,7 +39,7 @@ export function ChatView() {
           empty ? "bottom-1/2 translate-y-1/2" : "bottom-0 translate-y-0"
         }`}
       >
-        <div className="pointer-events-auto bg-[var(--color-bg)] pb-0 pt-2">
+        <div className="pointer-events-auto bg-[var(--color-bg)] pb-4 pt-2">
           <Composer />
         </div>
       </div>
