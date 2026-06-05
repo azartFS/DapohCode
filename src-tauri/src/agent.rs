@@ -63,18 +63,20 @@ fn sanitize_messages(messages: Vec<serde_json::Value>) -> Vec<serde_json::Value>
         .collect()
 }
 
-fn build_body(
-    req: &AgentRequest,
+fn build_body_owned(
+    model: &str,
+    tools: &serde_json::Value,
+    reasoning_effort: &Option<String>,
     messages: &[serde_json::Value],
     stream: bool,
 ) -> serde_json::Value {
     let mut body = serde_json::json!({
-        "model": req.model,
+        "model": model,
         "messages": messages,
-        "tools": req.tools,
+        "tools": tools,
         "stream": stream,
     });
-    if let Some(effort) = req.reasoning_effort.as_deref() {
+    if let Some(effort) = reasoning_effort.as_deref() {
         if !effort.trim().is_empty() {
             body["reasoning_effort"] = serde_json::json!(effort);
         }
@@ -145,7 +147,7 @@ pub async fn agent_stream(
     let messages = sanitize_messages(req.messages);
 
     // Try streaming first.
-    let stream_body = build_body(&req, &messages, true);
+    let stream_body = build_body_owned(&req.model, &req.tools, &req.reasoning_effort, &messages, true);
     let client = reqwest::Client::new();
     let resp = client
         .post(&url)
@@ -159,7 +161,7 @@ pub async fn agent_stream(
     let status = resp.status();
     if !status.is_success() {
         // Some providers reject streaming with tools — fall back to sync.
-        let sync_body = build_body(&req, &messages, false);
+        let sync_body = build_body_owned(&req.model, &req.tools, &req.reasoning_effort, &messages, false);
         return complete_sync(&url, &req.api_key, sync_body).await;
     }
 
@@ -273,6 +275,6 @@ pub async fn agent_complete(req: AgentRequest) -> Result<AgentResponse, String> 
     let base = req.base_url.trim_end_matches('/');
     let url = format!("{base}/chat/completions");
     let messages = sanitize_messages(req.messages);
-    let body = build_body(&req, &messages, false);
+    let body = build_body_owned(&req.model, &req.tools, &req.reasoning_effort, &messages, false);
     complete_sync(&url, &req.api_key, body).await
 }
