@@ -212,29 +212,36 @@ pub async fn agent_stream(
             let Some(delta) = delta else { continue };
 
             // Content token
-            if let Some(c) = delta.get("content").and_then(|c| c.as_str()) {
-                if !c.is_empty() {
-                    content.push_str(c);
-                    let _ = app.emit(
-                        "agent-delta",
-                        AgentDeltaEvent {
-                            content: c.to_string(),
-                        },
-                    );
-                }
-            }
+            let has_content = delta
+                .get("content")
+                .and_then(|c| c.as_str())
+                .map_or(false, |c| !c.is_empty());
 
-            // Reasoning/thinking tokens (DeepSeek R1, QwQ, etc.)
-            for key in &["reasoning_content", "thinking", "reasoning"] {
-                if let Some(rc) = delta.get(*key).and_then(|v| v.as_str()) {
-                    if !rc.is_empty() {
-                        content.push_str(rc);
-                        let _ = app.emit(
-                            "agent-delta",
-                            AgentDeltaEvent {
-                                content: rc.to_string(),
-                            },
-                        );
+            if has_content {
+                let c = delta["content"].as_str().unwrap();
+                content.push_str(c);
+                let _ = app.emit(
+                    "agent-delta",
+                    AgentDeltaEvent {
+                        content: c.to_string(),
+                    },
+                );
+            } else {
+                // Reasoning/thinking tokens (DeepSeek R1, QwQ, etc.)
+                // Only when `content` is absent — some providers (NVIDIA)
+                // duplicate text across both fields.
+                for key in &["reasoning_content", "thinking", "reasoning"] {
+                    if let Some(rc) = delta.get(*key).and_then(|v| v.as_str()) {
+                        if !rc.is_empty() {
+                            content.push_str(rc);
+                            let _ = app.emit(
+                                "agent-delta",
+                                AgentDeltaEvent {
+                                    content: rc.to_string(),
+                                },
+                            );
+                            break; // emit only the first non-empty reasoning field
+                        }
                     }
                 }
             }

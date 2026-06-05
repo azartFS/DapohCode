@@ -177,29 +177,36 @@ pub async fn chat_stream(
 
                 if let Some(delta) = delta {
                     // Standard content tokens
-                    if let Some(c) = delta.get("content").and_then(|c| c.as_str()) {
-                        if !c.is_empty() {
-                            let _ = app.emit(
-                                "chat-delta",
-                                DeltaEvent {
-                                    request_id: req.request_id.clone(),
-                                    content: c.to_string(),
-                                },
-                            );
-                        }
-                    }
-                    // Reasoning/thinking tokens (DeepSeek R1, QwQ, etc.)
-                    // Emit as regular content so the user sees something.
-                    for key in &["reasoning_content", "thinking", "reasoning"] {
-                        if let Some(rc) = delta.get(*key).and_then(|v| v.as_str()) {
-                            if !rc.is_empty() {
-                                let _ = app.emit(
-                                    "chat-delta",
-                                    DeltaEvent {
-                                        request_id: req.request_id.clone(),
-                                        content: rc.to_string(),
-                                    },
-                                );
+                    let has_content = delta
+                        .get("content")
+                        .and_then(|c| c.as_str())
+                        .map_or(false, |c| !c.is_empty());
+
+                    if has_content {
+                        let c = delta["content"].as_str().unwrap();
+                        let _ = app.emit(
+                            "chat-delta",
+                            DeltaEvent {
+                                request_id: req.request_id.clone(),
+                                content: c.to_string(),
+                            },
+                        );
+                    } else {
+                        // Reasoning/thinking tokens (DeepSeek R1, QwQ, etc.)
+                        // Only used when `content` is absent — some providers
+                        // (NVIDIA) duplicate text across both fields.
+                        for key in &["reasoning_content", "thinking", "reasoning"] {
+                            if let Some(rc) = delta.get(*key).and_then(|v| v.as_str()) {
+                                if !rc.is_empty() {
+                                    let _ = app.emit(
+                                        "chat-delta",
+                                        DeltaEvent {
+                                            request_id: req.request_id.clone(),
+                                            content: rc.to_string(),
+                                        },
+                                    );
+                                    break; // emit only from the first non-empty reasoning field
+                                }
                             }
                         }
                     }
