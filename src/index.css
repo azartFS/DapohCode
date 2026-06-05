@@ -116,3 +116,22 @@ input, textarea {
 [data-tauri-drag-region] {
   cursor: default;
 }
+
+/* Syntax highlighting — One Dark inspired */
+.hl-kw  { color: #c678dd; }
+.hl-str { color: #98c379; }
+.hl-cmt { color: #5c6370; font-style: italic; }
+.hl-num { color: #d19a66; }
+.hl-fn  { color: #61afef; }
+.hl-type { color: #e5c07b; }
+.hl-op  { color: #56b6c2; }
+.hl-punc { color: #8a8a8a; }
+
+html[data-theme="light"] .hl-kw  { color: #7c3aed; }
+html[data-theme="light"] .hl-str { color: #16a34a; }
+html[data-theme="light"] .hl-cmt { color: #9ca3af; font-style: italic; }
+html[data-theme="light"] .hl-num { color: #c2410c; }
+html[data-theme="light"] .hl-fn  { color: #2563eb; }
+html[data-theme="light"] .hl-type { color: #b45309; }
+html[data-theme="light"] .hl-op  { color: #0d9488; }
+html[data-theme="light"] .hl-punc { color: #6b7280; }

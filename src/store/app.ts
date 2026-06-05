@@ -283,6 +283,25 @@ function loadPersisted(): Persisted {
   }
 }
 
+/** Play a short notification tone via Web Audio API. */
+function playNotificationSound() {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "sine";
+    // Two-tone ascending chime
+    osc.frequency.setValueAtTime(660, ctx.currentTime);
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.4);
+  } catch { /* ignore audio errors */ }
+}
+
 function uuid(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -834,6 +853,7 @@ export const useApp = create<AppState>((set, get) => ({
         };
       });
       if (titleSessionId) void get().generateTitle(titleSessionId);
+      if (get().notifyOnComplete) playNotificationSound();
     };
 
     try {
@@ -1294,6 +1314,8 @@ export const useApp = create<AppState>((set, get) => ({
       };
     });
     if (titleSessionId) void get().generateTitle(titleSessionId);
+    // Play notification sound if enabled
+    if (get().notifyOnComplete) playNotificationSound();
   },
 
   failStream: (requestId, message) =>

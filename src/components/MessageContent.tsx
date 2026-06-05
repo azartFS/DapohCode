@@ -1,4 +1,5 @@
 import { useState, useMemo, type ReactNode } from "react";
+import { tokenize } from "../lib/highlight";
 
 /* ────────── AST types ────────── */
 
@@ -216,7 +217,7 @@ function renderInline(nodes: Inline[], keyPrefix = ""): ReactNode[] {
       case "text":
         return <span key={key}>{n.text}</span>;
       case "bold":
-        return <strong key={key} className="font-semibold text-white">{renderInline(n.children, `${key}-`)}</strong>;
+        return <strong key={key} className="font-semibold text-[var(--color-text)]">{renderInline(n.children, `${key}-`)}</strong>;
       case "italic":
         return <em key={key}>{renderInline(n.children, `${key}-`)}</em>;
       case "code":
@@ -250,6 +251,7 @@ function renderInline(nodes: Inline[], keyPrefix = ""): ReactNode[] {
 
 function CodeBlock({ lang, content }: { lang: string; content: string }) {
   const [copied, setCopied] = useState(false);
+  const tokens = useMemo(() => tokenize(content.replace(/\n$/, ""), lang), [content, lang]);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(content);
@@ -267,13 +269,17 @@ function CodeBlock({ lang, content }: { lang: string; content: string }) {
         </span>
         <button
           onClick={copy}
-          className="text-[11px] text-[var(--color-muted)] transition-colors hover:text-white"
+          className="text-[11px] text-[var(--color-muted)] transition-colors hover:text-[var(--color-text)]"
         >
-          {copied ? "скопировано" : "копировать"}
+          {copied ? "скопировано ✓" : "копировать"}
         </button>
       </div>
-      <pre className="selectable overflow-x-auto px-3 py-2.5 font-mono text-[12.5px] leading-relaxed text-[#e6e6e6]">
-        <code>{content.replace(/\n$/, "")}</code>
+      <pre className="selectable overflow-x-auto px-3 py-2.5 font-mono text-[12.5px] leading-relaxed text-[var(--color-text)]">
+        <code>{tokens.map((t, i) =>
+          t.type === "text"
+            ? <span key={i}>{t.text}</span>
+            : <span key={i} className={`hl-${t.type}`}>{t.text}</span>
+        )}</code>
       </pre>
     </div>
   );
@@ -283,9 +289,9 @@ function renderBlock(block: Block, key: string): ReactNode {
   switch (block.type) {
     case "heading": {
       const cls: Record<number, string> = {
-        1: "text-[17px] font-bold text-white mt-4 mb-2",
-        2: "text-[15px] font-bold text-white mt-3 mb-1.5",
-        3: "text-[14px] font-semibold text-white mt-2.5 mb-1",
+        1: "text-[17px] font-bold text-[var(--color-text)] mt-4 mb-2",
+        2: "text-[15px] font-bold text-[var(--color-text)] mt-3 mb-1.5",
+        3: "text-[14px] font-semibold text-[var(--color-text)] mt-2.5 mb-1",
         4: "text-[13.5px] font-semibold text-[#ddd] mt-2 mb-1",
         5: "text-[13px] font-semibold text-[#ccc] mt-1.5 mb-0.5",
         6: "text-[12.5px] font-semibold text-[#bbb] mt-1.5 mb-0.5",

@@ -15,7 +15,7 @@ export function MessageBubble({ m }: { m: ChatMessage }) {
   if (isUser) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[78%] rounded-[15px] bg-[#262626] px-[15px] py-[9px] text-[13.5px] leading-relaxed text-white">
+        <div className="max-w-[78%] rounded-[15px] bg-[var(--color-surface-2)] px-[15px] py-[9px] text-[13.5px] leading-relaxed text-[var(--color-text)]">
           <MessageContent text={content} />
         </div>
       </div>

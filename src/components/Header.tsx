@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { save } from "@tauri-apps/plugin-dialog";
 import { useApp } from "../store/app";
+import { writeTextFile } from "../lib/tauri";
 import {
   IconCircle,
   IconClose,
@@ -39,6 +41,28 @@ export function Header() {
   const hasMessages = (cur?.messages.length ?? 0) > 0;
   const title =
     view === "settings" ? "Настройки" : hasMessages ? cur?.title ?? "" : "";
+
+  const onExport = async () => {
+    setMenuOpen(false);
+    if (!cur) return;
+    const md = cur.messages
+      .filter((m) => !m.error)
+      .map((m) => {
+        const prefix = m.role === "user" ? "## 👤 User" : "## 🤖 Assistant";
+        return `${prefix}\n\n${m.content}`;
+      })
+      .join("\n\n---\n\n");
+    const content = `# ${cur.title || "Chat"}\n\n${md}\n`;
+    try {
+      const filePath = await save({
+        defaultPath: `${(cur.title || "chat").replace(/[^a-zA-Zа-яА-Я0-9_-]/g, "_")}.md`,
+        filters: [{ name: "Markdown", extensions: ["md"] }],
+      });
+      if (filePath) await writeTextFile(filePath, content);
+    } catch {
+      /* cancelled */
+    }
+  };
 
   const onRename = () => {
     setMenuOpen(false);
@@ -89,6 +113,12 @@ export function Header() {
                   className="block w-full px-3 py-2 text-left hover:bg-[var(--color-surface-2)]"
                 >
                   Переименовать
+                </button>
+                <button
+                  onClick={onExport}
+                  className="block w-full px-3 py-2 text-left hover:bg-[var(--color-surface-2)]"
+                >
+                  Экспорт .md
                 </button>
                 <button
                   onClick={onDelete}
