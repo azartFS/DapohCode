@@ -315,6 +315,24 @@ function playNotificationSound() {
   } catch { /* ignore audio errors */ }
 }
 
+// ── Context estimation (exported for Header ring) ──
+export const CONTEXT_WINDOW = 128000;
+
+export function estimateTokens(messages: ChatMessage[]): number {
+  let chars = 0;
+  for (const m of messages) {
+    chars += m.content.length;
+    if (m.reasoning) chars += m.reasoning.length;
+    if (m.fileContext) chars += m.fileContext.length;
+    if (m.toolSteps) {
+      for (const ts of m.toolSteps) {
+        chars += (ts.args?.length ?? 0) + (ts.result?.length ?? 0);
+      }
+    }
+  }
+  return Math.ceil(chars / 4) + 3000;
+}
+
 function uuid(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -960,6 +978,17 @@ export const useApp = create<AppState>((set, get) => ({
       });
       if (titleSessionId) void get().generateTitle(titleSessionId);
       if (get().notifyOnComplete) playNotificationSound();
+      // Auto-compact when context exceeds 80%
+      {
+        const _st = get();
+        const _sess = _st.sessions.find((x) => x.id === sessionId);
+        if (_sess && _sess.messages.length >= 6) {
+          const _tokens = estimateTokens(_sess.messages);
+          if (_tokens / CONTEXT_WINDOW >= 0.8) {
+            void get().compactSession();
+          }
+        }
+      }
     };
 
     try {
@@ -1447,6 +1476,20 @@ export const useApp = create<AppState>((set, get) => ({
     if (titleSessionId) void get().generateTitle(titleSessionId);
     // Play notification sound if enabled
     if (get().notifyOnComplete) playNotificationSound();
+    // Auto-compact when context exceeds 80%
+    {
+      const _st = get();
+      const _sid = _st.currentSessionId;
+      if (_sid) {
+        const _sess = _st.sessions.find((x) => x.id === _sid);
+        if (_sess && _sess.messages.length >= 6) {
+          const _tokens = estimateTokens(_sess.messages);
+          if (_tokens / CONTEXT_WINDOW >= 0.8) {
+            void get().compactSession();
+          }
+        }
+      }
+    }
   },
 
   failStream: (requestId, message) =>

@@ -1,29 +1,40 @@
 import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { save } from "@tauri-apps/plugin-dialog";
-import { useApp } from "../store/app";
+import { useApp, estimateTokens, CONTEXT_WINDOW } from "../store/app";
 import { useT } from "../lib/i18n";
 import { writeTextFile } from "../lib/tauri";
 import {
-  IconCircle,
   IconClose,
   IconKebab,
   IconMaximize,
   IconMinimize,
 } from "./icons";
 
+const CIRC = 2 * Math.PI * 7; // ≈43.98 — circumference of r=7
+
 export function Header() {
   const view = useApp((s) => s.view);
   const cur = useApp((s) =>
     s.sessions.find((x) => x.id === s.currentSessionId),
   );
-  const createChatInFolder = useApp((s) => s.createChatInFolder);
+  const compactSession = useApp((s) => s.compactSession);
   const deleteSession = useApp((s) => s.deleteSession);
   const renameSession = useApp((s) => s.renameSession);
 
   const t = useT();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Context usage percentage (only re-renders when pct changes)
+  const pct = useApp((s) => {
+    const sess = s.sessions.find((x) => x.id === s.currentSessionId);
+    if (!sess || sess.messages.length === 0) return 0;
+    return Math.min(
+      Math.round((estimateTokens(sess.messages) / CONTEXT_WINDOW) * 100),
+      100,
+    );
+  });
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -77,6 +88,8 @@ export function Header() {
     if (cur) deleteSession(cur.id);
   };
 
+  const offset = CIRC * (1 - pct / 100);
+
   return (
     <header
       data-tauri-drag-region
@@ -88,14 +101,47 @@ export function Header() {
 
       <div className="ml-auto flex items-center gap-3.5 text-[var(--color-muted)]">
         {view !== "settings" && (
-          <button
-            onClick={() => void createChatInFolder()}
-            title="Новый чат"
-            aria-label="New chat"
-            className="transition-colors hover:text-white"
-          >
-            <IconCircle className="h-[17px] w-[17px]" />
-          </button>
+          <div className="group relative">
+            <button
+              onClick={() => void compactSession()}
+              title={`${t("Контекст")}: ${pct}%`}
+              aria-label="Context usage"
+              className="flex items-center justify-center transition-colors hover:text-white"
+            >
+              <svg
+                width="17"
+                height="17"
+                viewBox="0 0 18 18"
+                style={{ transform: "rotate(-90deg)" }}
+              >
+                <circle
+                  cx="9"
+                  cy="9"
+                  r="7"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.12)"
+                  strokeWidth="1.8"
+                />
+                {pct > 0 && (
+                  <circle
+                    cx="9"
+                    cy="9"
+                    r="7"
+                    fill="none"
+                    stroke="white"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeDasharray={CIRC}
+                    strokeDashoffset={offset}
+                    style={{ transition: "stroke-dashoffset 0.4s ease" }}
+                  />
+                )}
+              </svg>
+            </button>
+            <div className="pointer-events-none absolute right-1/2 top-full z-50 mt-2 translate-x-1/2 whitespace-nowrap rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[11.5px] text-[#ccc] opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+              {t("Контекст")}: {pct}%
+            </div>
+          </div>
         )}
 
         {view !== "settings" && cur && (

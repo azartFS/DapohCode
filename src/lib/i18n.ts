@@ -117,6 +117,9 @@ const EN: Record<string, string> = {
   "Отклонить": "Reject",
   "Применить": "Apply",
 
+  // ── Context indicator ──
+  "Контекст": "Context",
+
   // ── File mentions ──
   "Файлы проекта": "Project Files",
 
