@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { useCurrentMessages } from "../store/app";
 import { MessageBubble } from "./MessageBubble";
 import { Composer } from "./Composer";
-import { StatusBar } from "./StatusBar";
 
 export function ChatView() {
   const messages = useCurrentMessages();
@@ -42,7 +41,6 @@ export function ChatView() {
       >
         <div className="pointer-events-auto bg-[var(--color-bg)] pb-0 pt-2">
           <Composer />
-          <StatusBar />
         </div>
       </div>
     </main>
