@@ -1,6 +1,6 @@
 [package]
 name = "dapohcode"
-version = "0.2.0"
+version = "0.1.0"
 description = "Desktop AI coding assistant"
 authors = ["DapohCode"]
 edition = "2021"
