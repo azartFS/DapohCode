@@ -88,7 +88,11 @@ ${memoryContent}`);
 - **delete_file(path)** — удалить файл.
 
 ## Выполнение
-- **run_command(command, timeout_secs?)** — shell в корне проекта. sh -c / cmd /C. Таймаут 120с, макс 300с.`);
+- **run_command(command, timeout_secs?)** — shell в корне проекта. sh -c / cmd /C. Таймаут 120с, макс 300с.
+
+## Интернет
+- **web_search(query)** — поиск в интернете. Используй для актуальной информации: последние версии, даты, факты, которые могли измениться.
+- **web_fetch(url, max_chars?)** — загрузить страницу по URL. HTML → текст. Для документации, статей, API.`);
 
   // ── Workflow ──
   parts.push(`# Рабочий процесс
