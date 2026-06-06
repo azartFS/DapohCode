@@ -258,3 +258,12 @@ export const IconHome = (p: P) => (
     <polyline points="9 22 9 12 15 12 15 22" />
   </svg>
 );
+
+export const IconDownload = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 3v12" />
+    <polyline points="8 11 12 15 16 11" />
+    <path d="M20 21H4" />
+  </svg>
+);
+

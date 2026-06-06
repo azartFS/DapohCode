@@ -9,7 +9,9 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconClose,
+  IconDownload,
   IconFileText,
+  IconGlobe,
   IconList,
   IconPencil,
   IconSearch,
@@ -26,6 +28,8 @@ const LABEL: Record<string, string> = {
   delete_file: "Удаление",
   run_command: "Команда",
   grep: "Поиск (regex)",
+  web_search: "Поиск в интернете",
+  web_fetch: "Изучение страницы",
 };
 
 function ToolIcon({ name, className }: { name: string; className?: string }) {
@@ -34,6 +38,8 @@ function ToolIcon({ name, className }: { name: string; className?: string }) {
   if (name === "search_text") return <IconSearch className={className} />;
   if (name === "delete_file") return <IconTrash className={className} />;
   if (name === "run_command") return <IconFileText className={className} />;
+  if (name === "web_search") return <IconGlobe className={className} />;
+  if (name === "web_fetch") return <IconDownload className={className} />;
   return <IconFileText className={className} />;
 }
 
@@ -87,6 +93,119 @@ function DiffView({ lines }: { lines: DiffLine[] }) {
   );
 }
 
+/* ── web_search result parser ── */
+
+interface SearchHit {
+  num: string;
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+function parseSearchResults(raw: string): SearchHit[] {
+  const hits: SearchHit[] = [];
+  const blocks = raw.split(/\n\n+/);
+  for (const block of blocks) {
+    const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (lines.length === 0) continue;
+    // First line: "1. Title"
+    const m = lines[0].match(/^(\d+)\.\s+(.+)/);
+    if (!m) continue;
+    hits.push({
+      num: m[1],
+      title: m[2],
+      url: lines[1] ?? "",
+      snippet: lines.slice(2).join(" "),
+    });
+  }
+  return hits;
+}
+
+function SearchResultsView({ result }: { result: string }) {
+  const hits = parseSearchResults(result);
+  if (hits.length === 0) {
+    return (
+      <pre className="selectable max-h-[260px] overflow-auto px-3 py-2 font-mono text-[12px] leading-[1.5] text-[#cfcfcf]">
+        {result}
+      </pre>
+    );
+  }
+  return (
+    <div className="selectable max-h-[340px] overflow-y-auto py-1.5">
+      {hits.map((h, i) => (
+        <div
+          key={i}
+          className={`px-3.5 py-2 transition-colors hover:bg-[var(--color-surface-2)] ${
+            i > 0 ? "border-t border-[color-mix(in_srgb,var(--color-border)_50%,transparent)]" : ""
+          }`}
+        >
+          <div className="flex items-baseline gap-1.5 text-[13px] font-medium leading-[1.35] text-[#7cacf8]">
+            <span className="text-[11px] font-normal text-[var(--color-faint)] tabular-nums shrink-0">
+              {h.num}
+            </span>
+            <span>{h.title}</span>
+          </div>
+          {h.url && (
+            <div className="mt-0.5 truncate font-mono text-[11px] leading-[1.4] text-[var(--color-faint)]">
+              {h.url}
+            </div>
+          )}
+          {h.snippet && (
+            <div className="mt-0.5 text-[12.5px] leading-[1.45] text-[var(--color-muted)] line-clamp-2">
+              {h.snippet}
+            </div>
+          )}
+        </div>
+      ))}
+      <div className="px-3.5 py-1 text-[11px] text-[var(--color-faint)]">
+        {hits.length} {hits.length === 1 ? "результат" : hits.length < 5 ? "результата" : "результатов"}
+      </div>
+    </div>
+  );
+}
+
+/* ── web_fetch result view ── */
+
+function FetchResultView({ result, url }: { result: string; url?: string }) {
+  const charCount = result.length;
+  const fmtCount =
+    charCount >= 1000
+      ? `${Math.round(charCount / 1000)} к символов`
+      : `${charCount} символов`;
+
+  // Shorten URL for display chip
+  let shortUrl = url ?? "";
+  try {
+    if (shortUrl) {
+      const u = new URL(shortUrl);
+      const path = u.pathname.length > 30 ? u.pathname.slice(0, 27) + "…" : u.pathname;
+      shortUrl = u.host + path;
+    }
+  } catch {
+    // keep as-is
+  }
+
+  return (
+    <div className="selectable max-h-[320px] overflow-y-auto">
+      {(shortUrl || charCount > 0) && (
+        <div className="flex items-center gap-1.5 px-3.5 pt-2 pb-1 text-[11px] text-[var(--color-faint)]">
+          {shortUrl && (
+            <span className="truncate max-w-[400px] rounded bg-[var(--color-surface-2)] px-2 py-0.5 font-mono text-[10.5px] text-[var(--color-muted)]">
+              {shortUrl}
+            </span>
+          )}
+          <span className="tabular-nums">· {fmtCount}</span>
+        </div>
+      )}
+      <div className="whitespace-pre-wrap break-words px-3.5 pb-2.5 pt-1 text-[12.5px] leading-[1.55] text-[#c8c8c8]">
+        {result}
+      </div>
+    </div>
+  );
+}
+
+/* ── Main card ── */
+
 export function ToolStepCard({ step }: { step: ToolStep }) {
   const t = useT();
   const pendingPerm = useApp((s) => s.pendingPerm);
@@ -96,6 +215,8 @@ export function ToolStepCard({ step }: { step: ToolStep }) {
     step.name === "edit_file" ||
     step.name === "delete_file" ||
     step.name === "run_command";
+  const isWebSearch = step.name === "web_search";
+  const isWebFetch = step.name === "web_fetch";
   const awaiting = pendingPerm?.stepId === step.id;
   const [open, setOpen] = useState(isWrite);
 
@@ -141,6 +262,10 @@ export function ToolStepCard({ step }: { step: ToolStep }) {
             diff.length > 0 ? (
               <DiffView lines={diff} />
             ) : null
+          ) : isWebSearch && step.result ? (
+            <SearchResultsView result={step.result} />
+          ) : isWebFetch && step.result ? (
+            <FetchResultView result={step.result} url={step.path} />
           ) : (
             <pre className="selectable max-h-[260px] overflow-auto px-3 py-2 font-mono text-[12px] leading-[1.5] text-[#cfcfcf]">
               {step.result}

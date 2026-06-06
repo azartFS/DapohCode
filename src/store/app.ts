@@ -1087,7 +1087,11 @@ export const useApp = create<AppState>((set, get) => ({
         if (readCalls.length > 0 && !agentAbort) {
           const readPromises = readCalls.map(async (c) => {
             const args = parseArgs(c.arguments);
-            const dispPath = args.path != null ? String(args.path) : undefined;
+            const dispPath =
+              args.path != null ? String(args.path)
+              : args.query != null ? String(args.query)
+              : args.url != null ? String(args.url)
+              : undefined;
             patchStep(curId, c.id, (s) => ({ ...s, path: dispPath }));
             try {
               const resultText = await runReadTool(root, c.name, args);
