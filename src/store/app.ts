@@ -416,9 +416,10 @@ interface AppState extends Persisted {
   failStream: (requestId: string, message: string) => void;
 }
 
-function persist(state: Persisted) {
-  if (typeof window === "undefined") return;
-  const data: Persisted = {
+/** Serialize the persisted subset, capping sessions to MAX_SESSIONS. */
+const MAX_SESSIONS = 50;
+function buildPersistedData(state: Persisted): Persisted {
+  return {
     providers: state.providers,
     models: state.models,
     activeModelId: state.activeModelId,
@@ -426,7 +427,9 @@ function persist(state: Persisted) {
     temperature: state.temperature,
     reasoningEffort: state.reasoningEffort,
     autoApply: state.autoApply,
-    sessions: state.sessions,
+    sessions: state.sessions.length > MAX_SESSIONS
+      ? state.sessions.slice(0, MAX_SESSIONS)
+      : state.sessions,
     currentSessionId: state.currentSessionId,
     projectName: state.projectName,
     projectPath: state.projectPath,
@@ -438,11 +441,29 @@ function persist(state: Persisted) {
     language: state.language,
     showThinking: state.showThinking,
   };
+}
+
+let _persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Debounced persist — batches rapid state changes (streaming deltas etc). */
+function persist(state: Persisted) {
+  if (typeof window === "undefined") return;
+  if (_persistTimer) clearTimeout(_persistTimer);
+  _persistTimer = setTimeout(() => {
+    _persistTimer = null;
+    try {
+      window.localStorage.setItem(STORE_KEY, JSON.stringify(buildPersistedData(state)));
+    } catch { /* quota exceeded — ignore */ }
+  }, 1000);
+}
+
+/** Immediate persist — for critical moments (session create/delete, finalize). */
+function persistNow(state: Persisted) {
+  if (typeof window === "undefined") return;
+  if (_persistTimer) { clearTimeout(_persistTimer); _persistTimer = null; }
   try {
-    window.localStorage.setItem(STORE_KEY, JSON.stringify(data));
-  } catch {
-    /* ignore */
-  }
+    window.localStorage.setItem(STORE_KEY, JSON.stringify(buildPersistedData(state)));
+  } catch { /* ignore */ }
 }
 
 /** Replace the messages of a single session by id. */
@@ -738,7 +759,7 @@ export const useApp = create<AppState>((set, get) => ({
     };
     set((s) => {
       const sessions = [session, ...s.sessions];
-      persist({ ...s, sessions, currentSessionId: id });
+      persistNow({ ...s, sessions, currentSessionId: id });
       return { sessions, currentSessionId: id, view: "chat" };
     });
     return id;
@@ -760,7 +781,7 @@ export const useApp = create<AppState>((set, get) => ({
     };
     set((s) => {
       const sessions = [session, ...s.sessions];
-      persist({ ...s, sessions, currentSessionId: id });
+      persistNow({ ...s, sessions, currentSessionId: id });
       return { sessions, currentSessionId: id, view: "chat" };
     });
     return id;
@@ -790,7 +811,7 @@ export const useApp = create<AppState>((set, get) => ({
         s.currentSessionId === id
           ? (sessions[0]?.id ?? null)
           : s.currentSessionId;
-      persist({ ...s, sessions, currentSessionId });
+      persistNow({ ...s, sessions, currentSessionId });
       return { sessions, currentSessionId };
     }),
 
@@ -889,7 +910,7 @@ export const useApp = create<AppState>((set, get) => ({
         return { sessions, streamingMsgId: id };
       });
 
-    const clip = (s: string, n = 4000) =>
+    const clip = (s: string, n = 3000) =>
       s.length > n ? s.slice(0, n) + "\n…[обрезано]" : s;
 
     // Append the user message + first assistant placeholder, enter streaming.
@@ -972,7 +993,7 @@ export const useApp = create<AppState>((set, get) => ({
             (m) => !m.error && (m.content.trim().length > 0 || m.toolSteps),
           ) ?? [];
         if (sess && !sess.autoTitled && real.length >= 2) titleSessionId = sessionId;
-        persist({ ...st, sessions });
+        persistNow({ ...st, sessions });
         return {
           sessions,
           streaming: false,
@@ -1002,21 +1023,31 @@ export const useApp = create<AppState>((set, get) => ({
         if (agentAbort) break;
 
         // Stream text tokens live via agent-delta events.
-        const unlisten = await onAgentDelta((e) => {
-          if (!agentAbort) {
+        // Buffer deltas and flush in batches to reduce re-renders + GC pressure
+        let _dbuf = "";
+        let _rbuf = "";
+        let _flushTimer: ReturnType<typeof setTimeout> | null = null;
+        const flushDeltas = () => {
+          _flushTimer = null;
+          const d = _dbuf; const r = _rbuf;
+          _dbuf = ""; _rbuf = "";
+          if (d || r) {
             patchMsg(curId, (m) => ({
               ...m,
-              content: m.content + e.content,
+              ...(d ? { content: m.content + d } : {}),
+              ...(r ? { reasoning: (m.reasoning ?? "") + r } : {}),
             }));
           }
+        };
+        const scheduleDeltaFlush = () => {
+          if (!_flushTimer) _flushTimer = setTimeout(flushDeltas, 50);
+        };
+
+        const unlisten = await onAgentDelta((e) => {
+          if (!agentAbort) { _dbuf += e.content; scheduleDeltaFlush(); }
         });
         const unlistenReasoning = await onAgentReasoningDelta((e) => {
-          if (!agentAbort) {
-            patchMsg(curId, (m) => ({
-              ...m,
-              reasoning: (m.reasoning ?? "") + e.content,
-            }));
-          }
+          if (!agentAbort) { _rbuf += e.content; scheduleDeltaFlush(); }
         });
 
         let resp: Awaited<ReturnType<typeof agentStream>>;
@@ -1032,6 +1063,8 @@ export const useApp = create<AppState>((set, get) => ({
         } finally {
           unlisten();
           unlistenReasoning();
+          if (_flushTimer) { clearTimeout(_flushTimer); _flushTimer = null; }
+          flushDeltas(); // flush remaining buffered deltas
         }
         if (agentAbort) break;
 
@@ -1420,37 +1453,61 @@ export const useApp = create<AppState>((set, get) => ({
     }
   },
 
-  appendDelta: (requestId, content) =>
-    set((s) => {
-      if (s.activeRequestId !== requestId || !s.streamingSessionId) return {};
-      const sessions = withSessionMessages(
-        s.sessions,
-        s.streamingSessionId,
-        (msgs) =>
-          msgs.map((m) =>
-            m.id === s.streamingMsgId
-              ? { ...m, content: m.content + content }
-              : m,
-          ),
-      );
-      return { sessions };
-    }),
+  appendDelta: (() => {
+    let buf = "";
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    return (requestId: string, content: string) => {
+      buf += content;
+      if (!timer) {
+        timer = setTimeout(() => {
+          timer = null;
+          const chunk = buf; buf = "";
+          set((s) => {
+            if (s.activeRequestId !== requestId || !s.streamingSessionId) return {};
+            const sessions = withSessionMessages(
+              s.sessions,
+              s.streamingSessionId,
+              (msgs) =>
+                msgs.map((m) =>
+                  m.id === s.streamingMsgId
+                    ? { ...m, content: m.content + chunk }
+                    : m,
+                ),
+            );
+            return { sessions };
+          });
+        }, 50);
+      }
+    };
+  })(),
 
-  appendReasoningDelta: (requestId, content) =>
-    set((s) => {
-      if (s.activeRequestId !== requestId || !s.streamingSessionId) return {};
-      const sessions = withSessionMessages(
-        s.sessions,
-        s.streamingSessionId,
-        (msgs) =>
-          msgs.map((m) =>
-            m.id === s.streamingMsgId
-              ? { ...m, reasoning: (m.reasoning ?? "") + content }
-              : m,
-          ),
-      );
-      return { sessions };
-    }),
+  appendReasoningDelta: (() => {
+    let buf = "";
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    return (requestId: string, content: string) => {
+      buf += content;
+      if (!timer) {
+        timer = setTimeout(() => {
+          timer = null;
+          const chunk = buf; buf = "";
+          set((s) => {
+            if (s.activeRequestId !== requestId || !s.streamingSessionId) return {};
+            const sessions = withSessionMessages(
+              s.sessions,
+              s.streamingSessionId,
+              (msgs) =>
+                msgs.map((m) =>
+                  m.id === s.streamingMsgId
+                    ? { ...m, reasoning: (m.reasoning ?? "") + chunk }
+                    : m,
+                ),
+            );
+            return { sessions };
+          });
+        }, 50);
+      }
+    };
+  })(),
 
   finishStream: (requestId) => {
     let titleSessionId: string | null = null;
@@ -1474,7 +1531,7 @@ export const useApp = create<AppState>((set, get) => ({
       if (sess && !sess.autoTitled && realMsgs.length >= 2) {
         titleSessionId = sid;
       }
-      persist({ ...s, sessions });
+      persistNow({ ...s, sessions });
       return {
         sessions,
         streaming: false,
@@ -1521,7 +1578,7 @@ export const useApp = create<AppState>((set, get) => ({
               : m,
           ),
       );
-      persist({ ...s, sessions });
+      persistNow({ ...s, sessions });
       return {
         sessions,
         streaming: false,
