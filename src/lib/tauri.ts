@@ -107,6 +107,33 @@ export async function runCommand(
   });
 }
 
+
+
+/* ─────────────────────────── Web (search + fetch) ─────────────────────── */
+
+export interface SearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+/** Fetch a URL and return its text content (HTML is stripped). */
+export async function webFetch(url: string, maxChars?: number): Promise<string> {
+  return await invoke<string>("web_fetch", {
+    req: { url, max_chars: maxChars ?? null },
+  });
+}
+
+/** Search the web via DuckDuckGo. Returns title + URL + snippet. */
+export async function webSearch(
+  query: string,
+  maxResults?: number,
+): Promise<SearchResult[]> {
+  return await invoke<SearchResult[]>("web_search", {
+    req: { query, max_results: maxResults ?? null },
+  });
+}
+
 /* ─────────────────────────── Agent (tool-calling) ──────────────────────── */
 
 export interface AgentToolCall {

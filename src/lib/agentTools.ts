@@ -9,6 +9,8 @@ import {
   runCommand,
   grepRegex,
   searchText,
+  webFetch,
+  webSearch,
   writeTextFile,
 } from "./tauri";
 import { diffLines, type DiffLine } from "./diff";
@@ -177,6 +179,50 @@ export const AGENT_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "web_search",
+      description:
+        "Поиск в интернете. Используй когда нужна актуальная информация: новые версии, даты, факты вне кодовой базы.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Поисковый запрос, напр. 'latest version of React'",
+          },
+          max_results: {
+            type: "number",
+            description: "Макс. результатов (по умолчанию 8)",
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "web_fetch",
+      description:
+        "Загрузить содержимое веб-страницы по URL. HTML автоматически конвертируется в текст. Используй для чтения документации, статей, API-ответов.",
+      parameters: {
+        type: "object",
+        properties: {
+          url: {
+            type: "string",
+            description: "URL страницы, напр. https://docs.rs/tokio/latest",
+          },
+          max_chars: {
+            type: "number",
+            description: "Макс. символов (по умолчанию 30000)",
+          },
+        },
+        required: ["url"],
+      },
+    },
+  },
 ];
 
 export function isWriteTool(name: string): boolean {
@@ -258,6 +304,22 @@ export async function runReadTool(
     return clamp(
       hits.map((h) => `${h.path}:${h.line}: ${h.text}`).join("\n"),
     );
+  }
+  if (name === "web_search") {
+    const query = String(args.query ?? "");
+    if (!query.trim()) throw new Error("web_search: пустой запрос");
+    const max = typeof args.max_results === "number" ? args.max_results : undefined;
+    const results = await webSearch(query, max);
+    if (results.length === 0) return "(нет результатов)";
+    return results
+      .map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.snippet}`)
+      .join("\n\n");
+  }
+  if (name === "web_fetch") {
+    const url = String(args.url ?? "");
+    if (!url.trim()) throw new Error("web_fetch: пустой URL");
+    const max = typeof args.max_chars === "number" ? args.max_chars : undefined;
+    return await webFetch(url, max);
   }
   throw new Error(`Неизвестный инструмент чтения: ${name}`);
 }

@@ -2,12 +2,14 @@ mod agent;
 mod chat;
 mod cmd;
 mod fs;
+mod web;
 
 use agent::{agent_complete, agent_stream};
 use cmd::run_command;
 use chat::{
     cancel_chat, chat_once, chat_stream, list_models, list_reasoning_models, CancelState,
 };
+use web::{web_fetch, web_search};
 use fs::{
     create_entry, delete_entry, read_dir, read_text_file, read_tree, rename_entry,
     search_text, write_text_file,
@@ -34,7 +36,9 @@ pub fn run() {
             delete_entry,
             read_tree,
             search_text,
-            run_command
+            run_command,
+            web_fetch,
+            web_search
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
